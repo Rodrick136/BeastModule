@@ -1,0 +1,16 @@
+{
+  "BEAST": {
+    "ExtraBeats": "Story Beats",
+    "ExtraExp": "Group Exp",
+    "Beast": {
+      "Virtue": "Life",
+      "Vice": "Legend",
+      "Traits": "Beast Traits"
+    },
+    "Hero": {
+      "Virtue": "Life",
+      "Vice": "Legend",
+      "Traits": "Hero Traits"
+    }
+  }
+}

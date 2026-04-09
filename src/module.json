@@ -1,0 +1,26 @@
+{
+  "id": "beast",
+  "title": "Beast: The Primordial",
+  "description": "A module to add character sheets and such for CoD 2e",
+  "version": "0.1.0",
+  "authors": [
+    {
+      "name": "Rodrick136"
+    }
+  ],
+  "esmodules": [
+    "scripts/index.js"
+  ],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    }
+  ],
+  "documentTypes": {
+    "Actor": {
+      "beastData": {}
+    }
+  }
+}
