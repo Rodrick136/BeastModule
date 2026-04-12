@@ -16,6 +16,8 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@eckidevs/bun-plugin-vue": "^0.3.0",
+    "@vueuse/core": "^14.2.1",
     "vue": "^3.5.32"
   }
 }

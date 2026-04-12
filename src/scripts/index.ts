@@ -1,17 +1,10 @@
 import { Logger } from "@/scripts/utils/logging";
 import MTAConfig from "@/scripts/data/mta_config";
+import Definitions from "../components/definitions";
 
-declare global {
-  interface Window {
-    BeastEphemeralData: {
-      tabsTracking: {
-        [id: string]: string | undefined;
-      };
-    };
-  }
-}
 window.BeastEphemeralData = {
-  tabsTracking: {},
+  debug: true,
+  actors: {},
 };
 
 Logger("Beast module as been loaded!");
@@ -21,6 +14,9 @@ Hooks.once("init", async () => {
 
   Logger("Extending MTA Character Data Options...");
   MTAConfig();
+
+  Logger("Initializing Component Definitions...");
+  Definitions.init();
 });
 
 Hooks.once("ready", async () => {
@@ -40,6 +36,19 @@ Hooks.on("renderActorSheet", (app, html, data) => {
   // @ts-ignore
   if (app.actor.system.characterType !== "beast") return;
 
+  const id = app.actor.id ?? app.id.toString();
+  if (!window.BeastEphemeralData.actors[id]) {
+    window.BeastEphemeralData.actors[id] = {
+      id: id,
+      name: app.actor.name,
+      // @ts-ignore
+      activeTab: app._tabs[0]?.active ?? "attributes",
+      changedElement: null,
+    };
+  }
+  const sheetData = window.BeastEphemeralData.actors[id];
+  app.activateTab(sheetData.activeTab);
+
   Logger("renderActorSheet", {
     app,
     html,
@@ -51,44 +60,48 @@ Hooks.on("renderActorSheet", (app, html, data) => {
   if (sheet_tabs.children("a[data-tab=beastLife]").length === 0) {
     sheet_tabs.append(lifeNavItem);
     // @ts-ignore
-    const customNote = app.actor.getFlag("beast", "customNote") || "";
-    const beastTab = `
-    <div class="tab beastLife" data-tab="beastLife">
-      <div class="item-stat-block">
-        <div class="form-line">
-          <label> Custom Note </label>
-          <input name="flags.beast.customNote" type="text" value="${customNote}">
-        </div>
-      </div>
-    </div>
-    `;
-    sheet_body.append(beastTab);
+    //const customNote = app.actor.getFlag("beast", "customNote") || "";
+    const tab = `<div class="tab beastLife" data-tab="beastLife">
+      <beast-life-tab id="${id}"></beast-life-tab>
+    </div>`;
+    sheet_body.append(tab);
   }
   if (sheet_tabs.children("a[data-tab=beastLegend]").length === 0) {
     sheet_tabs.append(legendNavItem);
     // @ts-ignore
-    const customNote = app.actor.getFlag("beast", "customNote") || "";
-    const beastTab = `
-    <div class="tab beastLife" data-tab="beastLife">
-      <div class="item-stat-block">
-        <div class="form-line">
-          <label> Custom Note </label>
-          <input name="flags.beast.customNote" type="text" value="${customNote}">
-        </div>
-      </div>
-    </div>
-    `;
-    sheet_body.append(beastTab);
+    //const customNote = app.actor.getFlag("beast", "customNote") || "";
+    const tab = `<div class="tab beastLegend" data-tab="beastLegend">
+      <beast-legend-tab id="${id}"></beast-legend-tab>
+    </div>`;
+    sheet_body.append(tab);
   }
 
-  const id = app.actor.id ?? app.id.toString();
   html.find<HTMLAnchorElement>(".sheet-tabs .item").on("click", (event) => {
     const target = event.currentTarget;
 
-    window.BeastEphemeralData.tabsTracking[id] = target.dataset.tab;
+    sheetData.activeTab = target.dataset.tab || "attributes";
   });
 
-  if (window.BeastEphemeralData.tabsTracking[id]) {
-    app.activateTab(window.BeastEphemeralData.tabsTracking[id]);
+  const changedElement = sheetData.changedElement?.dataset.name;
+  if (sheetData.activeTab.startsWith("beast") && changedElement) {
+    const selectors = `#MtAActorSheet-Actor-${id} .window-content [data-name="${changedElement}"]`;
+    const changed_el = document.querySelector(selectors);
+
+    if (changed_el) {
+      changed_el.scrollIntoView();
+
+      Logger("sheetData.changedElement.scrollIntoView", {
+        changed_el,
+        sheetData,
+      });
+    }
+  }
+});
+
+Hooks.on("closeActorSheet", (app, _html) => {
+  const id = app.actor.id ?? app.id.toString();
+  if (window.BeastEphemeralData.actors[id]) {
+    const data = window.BeastEphemeralData.actors[id];
+    data.changedElement = null;
   }
 });

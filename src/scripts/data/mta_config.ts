@@ -1,24 +1,3 @@
-import type { MTA } from "../../../foundry/data/Data/systems/mta/module/config.js";
-
-declare global {
-  interface CONFIG {
-    MTA: typeof MTA & {
-      characterConfig: {
-        character: {
-          [K: string]: {
-            [K: string]: {
-              locale: string;
-              sheet: string[];
-              virtueName: string;
-              viceName: string;
-            };
-          };
-        };
-      };
-    };
-  }
-}
-
 export default function config() {
   CONFIG.MTA.characterConfig.character.beast = {};
   CONFIG.MTA.characterConfig.character.beast.beast = {

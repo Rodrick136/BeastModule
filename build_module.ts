@@ -1,4 +1,5 @@
 /// <reference types="bun" />
+import vuePlugin from "@eckidevs/bun-plugin-vue";
 import { readdir } from "node:fs/promises";
 
 console.log("Building Foundry Module...");
@@ -22,6 +23,12 @@ await Bun.build({
   root: "./src",
   outdir: output,
   minify: false,
+  splitting: true,
+  plugins: [
+    vuePlugin({
+      prodDevTools: false,
+    }),
+  ],
 });
 
 // Copy files to output

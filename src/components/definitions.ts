@@ -1,23 +1,13 @@
 import { defineCustomElement } from "vue";
+import LifeTab from "./LifeTab.vue";
+import LegendTab from "./LegendTab.vue";
 
-const LifeTabDefinition = defineCustomElement({
-  // normal Vue component options here
-  props: {},
-  emits: {},
-  template: `...`,
-
-  // defineCustomElement only: CSS to be injected into shadow root
-  // styles: [`/* inlined css */`],
+const LifeTabDefinition = defineCustomElement(LifeTab, {
+  shadowRoot: false,
 });
 
-const LegendTabDefinition = defineCustomElement({
-  // normal Vue component options here
-  props: {},
-  emits: {},
-  template: `...`,
-
-  // defineCustomElement only: CSS to be injected into shadow root
-  // styles: [`/* inlined css */`],
+const LegendTabDefinition = defineCustomElement(LegendTab, {
+  shadowRoot: false,
 });
 
 // Register the custom element.
@@ -27,3 +17,5 @@ function init() {
   window.customElements.define("beast-life-tab", LifeTabDefinition);
   window.customElements.define("beast-legend-tab", LegendTabDefinition);
 }
+
+export default { init };
