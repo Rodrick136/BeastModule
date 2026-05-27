@@ -2,14 +2,35 @@
   "id": "beast",
   "title": "Beast: The Primordial",
   "description": "A module to add character sheets and such for CoD 2e",
-  "version": "0.1.0",
   "authors": [
     {
       "name": "Rodrick136"
     }
   ],
+  "version": "0.1.0",
+  "compatibility": {
+    "minimum": "13",
+    "verified": "14"
+  },
+  "relationships": {
+    "systems": [
+      {
+        "id": "mta",
+        "type": "system",
+        "manifest": "https://gitlab.com/MarlQ/mta/-/raw/master/system.json",
+        "compatibility": {
+          "verified": "0.18.0"
+        }
+      }
+    ],
+    "requires": []
+  },
+  "download": "",
   "esmodules": [
     "scripts/index.js"
+  ],
+  "styles": [
+    "styles/index.css"
   ],
   "languages": [
     {
