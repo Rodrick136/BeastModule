@@ -1,6 +1,7 @@
-import { useStorageAsync, type StorageLikeAsync } from "@vueuse/core";
-import { ref, shallowRef, toRaw } from "vue";
+import { ref, toRaw } from "vue";
 import { Logger } from "./logging";
+import { diff } from "just-diff";
+import { cloneFnJSON } from "@vueuse/core";
 
 const MODULE_SCOPE = "beast" as const;
 
@@ -18,11 +19,24 @@ export function RetrieveDataFromActor(
   key: string,
   scope = MODULE_SCOPE,
 ) {
-  return actor.getFlag(scope, key) as unknown | undefined;
+  const result = actor.getFlag(scope, key);
+  if (!result) return undefined;
+
+  const data = cloneFnJSON(result);
+  return data as unknown;
 }
+
+type HistoryItem = {
+  op: "add" | "remove" | "replace";
+  path: Array<string | number>;
+  value: unknown;
+  og_value: unknown;
+  at: string;
+};
 
 type LIfeTabData = {
   type: "LIFE";
+  history: HistoryItem[];
   name: string;
   identity: string;
   occupation: string;
@@ -30,6 +44,7 @@ type LIfeTabData = {
 };
 export const DEFAULT_LIFE_TAB_DATA: LIfeTabData = {
   type: "LIFE",
+  history: [],
   name: "",
   identity: "",
   occupation: "",
@@ -85,9 +100,60 @@ export const EffectKeyToTitleMap: Record<EffectKey, string> = {
   misc: "Miscellaneous",
 
   active: "Active",
-};
+} as const;
+
+export const SatietyConditions = [
+  "STARED",
+  "STARVING",
+  "SATED",
+  "HIGH",
+  "GORGED",
+] as const;
+const SI_STARED = {
+  type: "STARED",
+  lang: "Stared",
+} as const;
+const SI_STARVING = {
+  type: "STARVING",
+  lang: "Starving",
+} as const;
+const SI_SATED = {
+  type: "SATED",
+  lang: "Sated",
+} as const;
+const SI_HIGH = {
+  type: "HIGH",
+  lang: "High",
+} as const;
+const SI_GORGED = {
+  type: "GORGED",
+  lang: "Gorged",
+} as const;
+/**
+ * Condition the beast is in.
+ * - 0 -> STARED
+ * - 1-3 -> STARVING
+ * - 4-6 -> SATED
+ * - 7-9 -> HIGH
+ * - 10 -> GORGED
+ */
+export const SatietyConditionMap = [
+  SI_STARED, // 0
+  SI_STARVING, // 1
+  SI_STARVING, // 2
+  SI_STARVING, // 3
+  SI_SATED, // 4
+  SI_SATED, // 5
+  SI_SATED, // 6
+  SI_HIGH, // 7
+  SI_HIGH, // 8
+  SI_HIGH, // 9
+  SI_GORGED,
+] as const;
+
 export type LegendTabData = {
   type: "LEGEND";
+  history: HistoryItem[];
   title: string;
   concept: string;
   notes: string;
@@ -96,7 +162,9 @@ export type LegendTabData = {
   family: string;
   hunger: string;
   horror: string;
-  satietyCondition: string;
+  lair: number;
+  satiety: number;
+  satietyPreferences: string;
   birthright: string;
   lairTraits: Array<{
     name: string;
@@ -115,6 +183,7 @@ export type LegendTabData = {
 };
 export const DEFAULT_LEGEND_TAB_DATA: LegendTabData = {
   type: "LEGEND",
+  history: [],
   title: "",
   concept: "",
   notes: "",
@@ -123,7 +192,9 @@ export const DEFAULT_LEGEND_TAB_DATA: LegendTabData = {
   family: "",
   hunger: "",
   horror: "",
-  satietyCondition: "",
+  lair: 1,
+  satiety: 5,
+  satietyPreferences: "",
   birthright: "",
   lairTraits: [],
   showLairTraits: true,
@@ -152,14 +223,19 @@ export type TabMap = {
 type TabData<T extends keyof TabMap> = TabMap[T];
 
 function getDefaultTabData<T extends keyof TabMap>(type: T) {
+  let result;
   switch (type) {
     case "LIFE": {
-      return DEFAULT_LIFE_TAB_DATA as TabData<T>;
+      result = DEFAULT_LIFE_TAB_DATA;
+      break;
     }
     case "LEGEND": {
-      return DEFAULT_LEGEND_TAB_DATA as TabData<T>;
+      result = DEFAULT_LEGEND_TAB_DATA;
+      break;
     }
   }
+
+  return JSON.parse(JSON.stringify(result)) as TabData<T>;
 }
 
 export function StoreTabData<T extends keyof TabMap>(
@@ -188,22 +264,74 @@ export function RetrieveTabData<T extends keyof TabMap>(id: string, type: T) {
   }
 }
 
+function getValueByPath(obj: any, path: (string | number)[]) {
+  return path.reduce((current, key) => {
+    // Check if current is a valid object/array and not null
+    return typeof current === "object" && current !== null
+      ? current[key]
+      : undefined;
+  }, obj);
+}
+
 export function useTabStorage<T extends keyof TabMap>(id: string, type: T) {
-  const state = ref(RetrieveTabData(id, type) || getDefaultTabData<T>(type));
+  const state = ref<TabData<T>>(
+    RetrieveTabData(id, type) || getDefaultTabData<T>(type),
+  );
 
   const save = (event: Event) => {
+    const new_data = toRaw(state.value) as TabData<T>;
+    const old_data = RetrieveTabData(id, type);
+    const history = cloneFnJSON(old_data?.history ?? []);
     Logger("LifeTab Component Data Changed", {
       id,
-      state: state.value,
+      new_data,
+      //old_data,
+      //history,
     });
 
-    const sheetData = window.BeastEphemeralData.actors[id];
-    if (sheetData) {
-      sheetData.changedElement = event.target as HTMLElement;
+    if (old_data) {
+      old_data.history = [];
+      new_data.history = [];
+
+      const delta = diff(old_data, new_data);
+      if (delta.length > 0) {
+        for (const change of delta) {
+          const item: HistoryItem = {
+            ...change,
+            og_value: getValueByPath(old_data, change.path),
+            at: new Date().toISOString(),
+          };
+          history.push(item);
+        }
+        Logger("Changes", {
+          delta,
+          history,
+        });
+        // only keep the last 100 items
+        if (history.length > 100) {
+          history.splice(0, history.length - 100);
+        }
+      } else {
+        Logger("No change detected!", {
+          old_data,
+          new_data,
+        });
+      }
     }
 
-    const value = toRaw(state.value);
-    return StoreTabData(id, type, value);
+    const target = event.target as HTMLElement | null;
+    const sheetData = window.BeastEphemeralData.actors[id];
+    if (target && sheetData) {
+      sheetData.changedElement = target;
+
+      const parent = target.closest<HTMLElement>(".window-content");
+      if (parent) {
+        sheetData.scrollY = parent.scrollTop;
+      }
+    }
+
+    new_data.history = history;
+    return StoreTabData(id, type, new_data);
   };
 
   return { state, save };

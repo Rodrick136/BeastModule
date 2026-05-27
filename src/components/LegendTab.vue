@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import * as DATA from "@/scripts/utils/data";
-import { shallowRef, useTemplateRef } from "vue";
+import { computed, shallowRef, useTemplateRef, watch } from "vue";
 import EffectsList from "./EffectsList.vue";
 
 const props = defineProps<{
@@ -8,9 +8,36 @@ const props = defineProps<{
 }>();
 const { state, save } = DATA.useTabStorage(props.id, "LEGEND");
 
+const isGM = Boolean(game.user?.isGM);
+const showAuditLog = shallowRef(false);
 const actor = game.actors?.get(props.id);
 const system = actor?.system as any;
 const variant = system?.characterVariant || "beast";
+
+const satiety_condition = computed<(typeof DATA.SatietyConditionMap)[number]>(
+  () =>
+    DATA.SatietyConditionMap[state.value.satiety || 0] ??
+    DATA.SatietyConditionMap[0],
+);
+
+const lair_el = useTemplateRef("lair");
+watch(
+  () => state.value.lair,
+  (newValue) => {
+    if (lair_el.value) {
+      lair_el.value.value = newValue.toString();
+      lair_el.value.dispatchEvent(
+        new Event("change", {
+          bubbles: true,
+        }),
+      );
+    }
+  },
+  {
+    immediate: false,
+    deep: false,
+  },
+);
 
 const addLairTrait = () => {
   if (!state.value.lairTraits) {
@@ -168,69 +195,119 @@ const deleteGift = async (index: number) => {
 </script>
 <template>
   <div
-    class="item-stat-block"
+    class="legend-tab-sheet item-stat-block"
     @change.stop.prevent="save"
   >
-    <h5>Identity</h5>
-    <div class="form-line">
-      <h5>
-        Title
+    <div style="display: flex; gap: 1rem">
+      <div class="identity-block">
+        <h5>Identity</h5>
+        <div class="form-line">
+          <h5>
+            Title
+            <template v-if="variant === 'beast'">
+              <span title="The name of your Horror">
+                <i class="fas fa-circle-info"></i>
+              </span>
+            </template>
+            <template v-if="variant === 'hero'">
+              <span title="The name of your Hero Persona">
+                <i class="fas fa-circle-info"></i>
+              </span>
+            </template>
+          </h5>
+          <input
+            data-name="LEGEND__state.title"
+            type="text"
+            v-model="state.title"
+          />
+        </div>
+        <div class="form-line">
+          <h5>Concept</h5>
+          <input
+            data-name="LEGEND__state.concept"
+            type="text"
+            v-model="state.concept"
+          />
+        </div>
         <template v-if="variant === 'beast'">
-          <span title="The name of your Horror">
-            <i class="fas fa-circle-info"></i>
-          </span>
+          <div class="form-line">
+            <h5>Family</h5>
+            <input
+              data-name="LEGEND__state.family"
+              type="text"
+              v-model="state.family"
+            />
+          </div>
+          <div class="form-line">
+            <h5>Hunger</h5>
+            <input
+              data-name="LEGEND__state.hunger"
+              type="text"
+              v-model="state.hunger"
+            />
+          </div>
         </template>
-        <template v-if="variant === 'hero'">
-          <span title="The name of your Hero Persona">
-            <i class="fas fa-circle-info"></i>
-          </span>
-        </template>
-      </h5>
-      <input
-        data-name="LEGEND__state.title"
-        type="text"
-        v-model="state.title"
-      />
-    </div>
-    <div class="form-line">
-      <h5>Concept</h5>
-      <input
-        data-name="LEGEND__state.concept"
-        type="text"
-        v-model="state.concept"
-      />
+      </div>
+      <template v-if="variant === 'beast'">
+        <div style="width: 100%">
+          <h5>Tracks</h5>
+          <div class="form-line">
+            <h5>Satiety</h5>
+            <div style="display: flex; gap: 1rem">
+              <input
+                data-name="LEGEND__state.satiety"
+                type="number"
+                v-model="state.satiety"
+              />
+              <p
+                style="margin: 0.25em"
+                title="Satiety Condition"
+              >
+                {{ satiety_condition.lang }}
+              </p>
+            </div>
+          </div>
+          <div class="form-line">
+            <h5>Lair</h5>
+            <div style="display: flex; gap: 4px">
+              <input
+                data-name="LEGEND__state.lair"
+                type="hidden"
+                ref="lair"
+              />
+              <template
+                v-for="n in 10"
+                :key="`dots-${n}__${state.lair}`"
+              >
+                <input
+                  class="lair-dot-input"
+                  :title="`${n}`"
+                  type="radio"
+                  :checked="n <= state.lair"
+                  @click.prevent="state.lair = n"
+                />
+              </template>
+            </div>
+          </div>
+        </div>
+      </template>
     </div>
     <template v-if="variant === 'beast'">
-      <div class="form-line">
-        <h5>Family</h5>
-        <input
-          data-name="LEGEND__state.family"
-          type="text"
-          v-model="state.family"
-        />
-      </div>
-      <div class="form-line">
-        <h5>Hunger</h5>
-        <input
-          data-name="LEGEND__state.hunger"
-          type="text"
-          v-model="state.hunger"
-        />
-      </div>
-      <div class="form-line">
-        <h5>Satiety Condition</h5>
-        <textarea
-          data-name="LEGEND__state.satietyCondition"
-          placeholder="Satiety Condition..."
-          v-model="state.satietyCondition"
-        ></textarea>
-      </div>
       <div class="form-line">
         <h5>Birthright</h5>
         <textarea
           data-name="LEGEND__state.birthright"
           placeholder="Birthright..."
           v-model="state.birthright"
+        ></textarea>
+      </div>
+
+      <div class="form-line">
+        <h5>Satiety Preferences</h5>
+        <textarea
+          data-name="LEGEND__state.satietyPreferences"
+          placeholder="Satiety Preferences..."
+          v-model="state.satietyPreferences"
         ></textarea>
       </div>
 
@@ -658,5 +735,68 @@ const deleteGift = async (index: number) => {
         v-model="state.notes"
       ></textarea>
     </div>
+
+    <template v-if="isGM">
+      <h5>
+        Audit Log
+        <span
+          class="button stoneButton item-edit"
+          title="Show"
+          ><i
+            class="fas"
+            :class="{
+              'fa-eye': !showAuditLog,
+              'fa-window-minimize': showAuditLog,
+            }"
+            @click.prevent="showAuditLog = !showAuditLog"
+          ></i
+        ></span>
+      </h5>
+      <div
+        v-if="showAuditLog"
+        class="form-line"
+        style="display: flex"
+      >
+        <div
+          class="history-items"
+          v-once
+        >
+          <div
+            v-for="(item, index) in state.history.toReversed()"
+            class="history-item"
+          >
+            <p>
+              #{{ index }} | OP: {{ item.op }} | At:
+              {{ new Date(item.at || Date()).toLocaleString() }} | Path:
+              {{ item.path.join(", ") }}
+            </p>
+            <pre>{{
+              JSON.stringify(
+                {
+                  value: item.value,
+                  og_value: item.og_value,
+                },
+                null,
+                2,
+              )
+            }}</pre>
+          </div>
+        </div>
+      </div>
+    </template>
   </div>
 </template>
+<style>
+.legend-tab-sheet .lair-dot-input {
+  width: 20px;
+  height: 20px;
+}
+
+.legend-tab-sheet .history-items {
+  width: 100%;
+  height: auto;
+
+  & .history-item {
+  }
+}
+</style>

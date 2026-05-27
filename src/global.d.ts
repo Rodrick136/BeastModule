@@ -27,6 +27,7 @@ declare global {
           name: string;
           activeTab: string;
           changedElement: HTMLElement | null;
+          scrollY: number | null;
         };
       };
     };

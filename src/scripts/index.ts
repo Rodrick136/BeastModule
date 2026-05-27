@@ -44,10 +44,10 @@ Hooks.on("renderActorSheet", (app, html, data) => {
       // @ts-ignore
       activeTab: app._tabs[0]?.active ?? "attributes",
       changedElement: null,
+      scrollY: null,
     };
   }
   const sheetData = window.BeastEphemeralData.actors[id];
-  app.activateTab(sheetData.activeTab);
 
   Logger("renderActorSheet", {
     app,
@@ -76,22 +76,25 @@ Hooks.on("renderActorSheet", (app, html, data) => {
     sheet_body.append(tab);
   }
 
+  app.activateTab(sheetData.activeTab);
   html.find<HTMLAnchorElement>(".sheet-tabs .item").on("click", (event) => {
     const target = event.currentTarget;
-
     sheetData.activeTab = target.dataset.tab || "attributes";
   });
 
-  const changedElement = sheetData.changedElement?.dataset.name;
-  if (sheetData.activeTab.startsWith("beast") && changedElement) {
-    const selectors = `#MtAActorSheet-Actor-${id} .window-content [data-name="${changedElement}"]`;
-    const changed_el = document.querySelector(selectors);
+  //const changedElement = sheetData.changedElement?.dataset.name;
+  if (sheetData.activeTab.startsWith("beast") && sheetData.scrollY) {
+    const selectors = `#MtAActorSheet-Actor-${id} .window-content`;
+    const window_content = document.querySelector(selectors);
 
-    if (changed_el) {
-      changed_el.scrollIntoView();
+    if (window_content) {
+      window_content.scroll({
+        behavior: "instant",
+        top: sheetData.scrollY,
+      });
 
       Logger("sheetData.changedElement.scrollIntoView", {
-        changed_el,
+        window_content,
         sheetData,
       });
     }
