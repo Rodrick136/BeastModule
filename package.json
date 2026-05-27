@@ -18,6 +18,7 @@
   "dependencies": {
     "@eckidevs/bun-plugin-vue": "^0.3.0",
     "@vueuse/core": "^14.2.1",
+    "just-diff": "^6.0.2",
     "vue": "^3.5.32"
   }
 }
