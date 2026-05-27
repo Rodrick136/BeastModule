@@ -4,7 +4,8 @@ import { readdir } from "node:fs/promises";
 
 console.log("Building Foundry Module...");
 
-const output = "./foundry/data/Data/modules/beast" as const;
+const output = "./build" as const;
+
 //const output = "./dist" as const;
 
 await Bun.$`rm -rf ${output}/`.quiet();
@@ -34,3 +35,12 @@ await Bun.build({
 // Copy files to output
 await Bun.$`cp ./src/module.json ${output}/`.quiet();
 await Bun.$`cp -r ./src/lang ${output}/`.quiet();
+
+await Bun.$`mkdir -p ${output}/styles/`.quiet();
+await Bun.$`mv ${output}/**/*.css ${output}/styles/`.quiet();
+
+const foundry = "./foundry/data/Data/modules/beast" as const;
+await Bun.$`rm -rf ${foundry}`.quiet();
+await Bun.$`mkdir -p ${foundry}`.quiet();
+
+await Bun.$`cp -r ${output}/* ${foundry}/`.quiet();
