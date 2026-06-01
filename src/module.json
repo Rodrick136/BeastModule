@@ -8,7 +8,7 @@
     }
   ],
   "license": "All rights reserved",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "compatibility": {
     "minimum": "13",
     "verified": "14"
