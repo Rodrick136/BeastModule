@@ -107,7 +107,7 @@ export type EffectKey =
   | keyof Gift["effects"];
 export const EffectKeyToTitleMap: Record<EffectKey, string> = {
   normal: "Normal",
-  highSatiety: "Sigh Satiety",
+  highSatiety: "High Satiety",
   exceptionalSuccess: "Exceptional Success",
   lowSatiety: "Low Satiety",
 
