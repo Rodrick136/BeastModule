@@ -2,7 +2,9 @@
   "name": "beast-module",
   "private": true,
   "scripts": {
-    "start": "bun run start_server.ts"
+    "start": "bun run start_server.ts",
+    "build": "bun run build_module.ts",
+    "release": "bun run build_release.ts"
   },
   "workspaces": [
     "libs/*"
@@ -10,15 +12,17 @@
   "devDependencies": {
     "@biomejs/biome": "2.4.10",
     "@types/bun": "latest",
+    "@types/common-tags": "^1.8.4",
     "fvtt-types": "latest"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   },
   "dependencies": {
     "@eckidevs/bun-plugin-vue": "^0.3.0",
-    "@vueuse/core": "^14.2.1",
+    "@vueuse/core": "^14.3.0",
+    "common-tags": "^1.8.2",
     "just-diff": "^6.0.2",
-    "vue": "^3.5.32"
+    "vue": "^3.5.35"
   }
 }
