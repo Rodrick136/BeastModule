@@ -1,6 +1,8 @@
 import { Logger } from "@/scripts/utils/logging";
 import MTAConfig from "@/scripts/data/mta_config";
 import Definitions from "../components/definitions";
+import { html } from "common-tags";
+import { renderDicePoolForm } from "./utils/rolls/rolls";
 
 window.BeastEphemeralData = {
   debug: true,
@@ -29,10 +31,41 @@ Hooks.once("ready", async () => {
 const lifeNavItem = `<a class="item" data-tab="beastLife">Life</a>` as const;
 const legendNavItem =
   `<a class="item" data-tab="beastLegend">Legend</a>` as const;
+const diceRollerMacro = html`<div
+  class="button charMacroButton diceRollerButton tooltip"
+  style="filter: hue-rotate(165deg);"
+>
+  <span class="tooltip-text"
+    >Opens a Dice Roller form that allows you to roll a dice pool.</span
+  >
+  <img
+    src="systems/mta/icons/gui/d10.svg"
+    alt="Dice Roller"
+  />
+</div>`;
 
 Hooks.on("renderActorSheet", (app, html, data) => {
   // @ts-ignore
   if (app.actor.type !== "character") return;
+  {
+    const macroPanel = html.find("div.characterMacroPanel > div");
+    const el = document.createElement("div");
+    macroPanel.append(el);
+    el.outerHTML = diceRollerMacro;
+
+    const button = html.find("div.characterMacroPanel .diceRollerButton");
+    button.on("click", () => {
+      Logger("Dice Roller Macro Clicked", { app });
+      return renderDicePoolForm(app.actor, {
+        cat: 'Character',
+        name: app.actor.name,
+        rollOptions: {
+          dicePool: 1,
+        },
+      })
+    });
+  }
+
   // @ts-ignore
   if (app.actor.system.characterType !== "beast") return;
 

@@ -5,13 +5,12 @@ const props = defineProps<{
   type: keyof DATA.TabMap;
   cat: string;
   index: number;
-  item: DATA.Atavism | DATA.Nightmare | DATA.Gift;
+  item: DATA.Atavism | DATA.Nightmare | DATA.Gift | DATA.LairTraitV1;
 }>();
 const item = useModel(props, "item");
+type Keys = Array<keyof typeof item.value.effects>;
 
-const keys = computed(
-  () => Object.keys(item.value.effects) as DATA.EffectKey[],
-);
+const keys = computed(() => Object.keys(item.value.effects) as Keys);
 </script>
 <template>
   <h6>Effects:</h6>

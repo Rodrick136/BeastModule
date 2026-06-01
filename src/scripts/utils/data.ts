@@ -51,6 +51,21 @@ export const DEFAULT_LIFE_TAB_DATA: LIfeTabData = {
   notes: "",
 };
 
+export type LairTraitV1 = {
+  __version: 1;
+  edit: boolean;
+  name: string;
+  desc: string;
+  effects: {
+    normal: string;
+  };
+}
+
+export type LairTrait = LairTraitV1 | {
+  name: string;
+  effect: string;
+};
+
 export type Nightmare = {
   edit: boolean;
   name: string;
@@ -103,15 +118,15 @@ export const EffectKeyToTitleMap: Record<EffectKey, string> = {
 } as const;
 
 export const SatietyConditions = [
-  "STARED",
+  "STARVED",
   "STARVING",
   "SATED",
   "HIGH",
   "GORGED",
 ] as const;
-const SI_STARED = {
-  type: "STARED",
-  lang: "Stared",
+const SI_STARVED = {
+  type: "STARVED",
+  lang: "Starved",
 } as const;
 const SI_STARVING = {
   type: "STARVING",
@@ -138,7 +153,7 @@ const SI_GORGED = {
  * - 10 -> GORGED
  */
 export const SatietyConditionMap = [
-  SI_STARED, // 0
+  SI_STARVED, // 0
   SI_STARVING, // 1
   SI_STARVING, // 2
   SI_STARVING, // 3
@@ -148,7 +163,7 @@ export const SatietyConditionMap = [
   SI_HIGH, // 7
   SI_HIGH, // 8
   SI_HIGH, // 9
-  SI_GORGED,
+  SI_GORGED, // 10
 ] as const;
 
 export type LegendTabData = {
@@ -166,10 +181,7 @@ export type LegendTabData = {
   satiety: number;
   satietyPreferences: string;
   birthright: string;
-  lairTraits: Array<{
-    name: string;
-    effect: string;
-  }>;
+  lairTraits: LairTrait[];
   showLairTraits: boolean;
   nightmares: Nightmare[];
   showNightmares: boolean;
