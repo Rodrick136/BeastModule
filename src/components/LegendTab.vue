@@ -350,7 +350,7 @@ const deleteGift = async (index: number) => {
         ></textarea>
       </div>
 
-      <h5>Liar Traits</h5>
+      <h5>Lair Traits</h5>
       <input
         data-name="LEGEND__state.lairTraits.deleted"
         type="hidden"
