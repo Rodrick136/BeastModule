@@ -1,4 +1,5 @@
 import type { MTA } from "../../../foundry/data/Data/systems/mta/module/config.js";
+import type { ScreenGM } from "@/scripts/screen-gm/application"
 
 declare global {
   interface CONFIG {
@@ -30,6 +31,7 @@ declare global {
           scrollY: number | null;
         };
       };
+      gm_screen: ScreenGM | null;
     };
   }
 }

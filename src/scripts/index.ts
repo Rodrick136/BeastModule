@@ -3,10 +3,13 @@ import MTAConfig from "@/scripts/data/mta_config";
 import Definitions from "../components/definitions";
 import { html } from "common-tags";
 import { renderDicePoolForm } from "./utils/rolls/rolls";
+import { ScreenGM } from "./screen-gm/application";
+import { RegisterModuleData } from "./utils/data";
 
 window.BeastEphemeralData = {
   debug: true,
   actors: {},
+  gm_screen: null,
 };
 
 Logger("Beast module as been loaded!");
@@ -19,12 +22,44 @@ Hooks.once("init", async () => {
 
   Logger("Initializing Component Definitions...");
   Definitions.init();
+  RegisterModuleData();
 });
 
 Hooks.once("ready", async () => {
   Logger(
     "This code runs once core initialization is ready and game data is available.",
   );
+});
+
+
+Hooks.on("getSceneControlButtons", (controls) => {
+  // Ensure the target core layer exists
+  if (!controls.tokens) return;
+
+  // Append your tool straight into the active Token layer list
+  controls.tokens.tools.beastGmScreen = {
+    name: "beastGmScreen",
+    title: "Open Beast GM Screen",
+    icon: "fa-solid fa-desktop",
+    button: true,
+    visible: game.user?.isGM,
+    order: 100,
+    toggle: false,
+    onChange: async (event, active) => {
+      // Logger("Beast GM Screen Button Clicked", { event, active });
+      const screen = window.BeastEphemeralData.gm_screen ?? new ScreenGM();
+      window.BeastEphemeralData.gm_screen = screen;
+      try {
+        if (screen.rendered) {
+          screen.bringToFront();
+        } else {
+          await screen.render();
+        }
+      } catch (error) {
+        Logger("Error rendering Beast GM Screen", { error }, "error");
+      }
+    }
+  };
 });
 
 //function handleCharacter() { }
@@ -141,3 +176,4 @@ Hooks.on("closeActorSheet", (app, _html) => {
     data.changedElement = null;
   }
 });
+
