@@ -1,9 +1,11 @@
 <script lang="ts" setup>
+import * as TYPES from "@/types/beast-types";
 import * as DATA from "@/scripts/utils/data";
 import { computed, shallowRef, useTemplateRef, watch } from "vue";
 import EffectsList from "./EffectsList.vue";
 import { renderDicePoolForm } from "@/scripts/utils/rolls/rolls";
 import { useThrottleFn } from "@vueuse/core";
+import { ConfirmationPrompt } from "@/scripts/utils/prompts.ts";
 
 const props = defineProps<{
   id: string;
@@ -65,17 +67,14 @@ const lairTraits = computed(() => {
         name: lairTrait.name,
         desc: "effect" in lairTrait ? lairTrait.effect : "",
         effects: "effects" in lairTrait ? lairTrait.effects : { normal: "" },
-      } satisfies DATA.LairTrait);
+      } satisfies TYPES.LairTrait);
     }
   }
   return results;
 });
 const addLairTrait = () => {
-  if (!state.value.lairTraits.length) {
-    state.value.lairTraits = [];
-  }
   state.value.showLairTraits = true;
-  const item: DATA.LairTrait = {
+  const item: TYPES.LairTrait = {
     __version: 1,
     edit: true,
     name: "Lair Trait",
@@ -88,7 +87,7 @@ const addLairTrait = () => {
 };
 const lairTraits_deleted = useTemplateRef("lairTraits.deleted");
 const deleteLairTrait = async (index: number) => {
-  const confirm = await DATA.ConfirmationPrompt();
+  const confirm = await ConfirmationPrompt();
   if (!confirm) return;
 
   const deleted_trait = state.value.lairTraits[index];
@@ -100,6 +99,42 @@ const deleteLairTrait = async (index: number) => {
   const el = lairTraits_deleted;
   if (el.value) {
     el.value.value = deleted_trait?.name || "";
+    el.value.dispatchEvent(
+      new Event("change", {
+        bubbles: true,
+      }),
+    );
+  }
+};
+
+const chambers = computed(() => state.value.chambers);
+const addChamber = () => {
+  state.value.showLairTraits = true;
+  const item: TYPES.Chamber = {
+    __version: 1,
+    edit: true,
+    name: "Chamber",
+    desc: "",
+    effects: {
+      normal: "",
+    },
+  };
+  state.value.chambers.push(item);
+};
+const chambers_deleted = useTemplateRef("chambers.deleted");
+const deleteChamber = async (index: number) => {
+  const confirm = await ConfirmationPrompt();
+  if (!confirm) return;
+
+  const deleted_chamber = state.value.chambers[index];
+  const new_chambers = state.value.chambers.filter((item, i) => index !== i);
+  state.value.chambers = new_chambers;
+
+  ui.notifications?.info(`Deleted chamber with name: ${deleted_chamber?.name}`);
+
+  const el = chambers_deleted;
+  if (el.value) {
+    el.value.value = deleted_chamber?.name || "";
     el.value.dispatchEvent(
       new Event("change", {
         bubbles: true,
@@ -129,7 +164,7 @@ const addNightmare = () => {
 };
 const nightmares_deleted = useTemplateRef("nightmares.deleted");
 const deleteNightmare = async (index: number) => {
-  const confirm = await DATA.ConfirmationPrompt();
+  const confirm = await ConfirmationPrompt();
   if (!confirm) return;
 
   const deleted_item = state.value.nightmares[index];
@@ -154,7 +189,7 @@ const addAtavism = () => {
     state.value.atavisms = [];
   }
   state.value.showAtavisms = true;
-  const item: DATA.Atavism = {
+  const item: TYPES.Atavism = {
     edit: true,
     name: "Atavism",
     dicePool: 0,
@@ -170,7 +205,7 @@ const addAtavism = () => {
 };
 const atavisms_deleted = useTemplateRef("atavisms.deleted");
 const deleteAtavism = async (index: number) => {
-  const confirm = await DATA.ConfirmationPrompt();
+  const confirm = await ConfirmationPrompt();
   if (!confirm) return;
 
   const deleted_item = state.value.atavisms[index];
@@ -195,7 +230,7 @@ const addGift = () => {
     state.value.gifts = [];
   }
   state.value.showGifts = true;
-  const item: DATA.Gift = {
+  const item: TYPES.Gift = {
     edit: true,
     name: "Gift",
     dicePool: 0,
@@ -209,7 +244,7 @@ const addGift = () => {
 };
 const gifts_deleted = useTemplateRef("gifts.deleted");
 const deleteGift = async (index: number) => {
-  const confirm = await DATA.ConfirmationPrompt();
+  const confirm = await ConfirmationPrompt();
   if (!confirm) return;
 
   const deleted_item = state.value.gifts[index];
@@ -456,6 +491,121 @@ const deleteGift = async (index: number) => {
                 <EffectsList
                   type="LEGEND"
                   cat="lairTraits"
+                  :index="index"
+                  :item="item"
+                />
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+
+      <h5>Chambers</h5>
+      <input
+        data-name="LEGEND__state.chambers.deleted"
+        type="hidden"
+        ref="chambers.deleted"
+      />
+      <table class="item-table">
+        <thead>
+          <tr class="item-row header">
+            <th class="cell header first">
+              <span
+                class="collapsible button fas"
+                :class="{
+                  'fa-minus-square': state.showChambers,
+                  'fa-plus-square': !state.showChambers,
+                }"
+                @click.prevent="state.showChambers = !state.showChambers"
+              >
+              </span>
+              Name
+            </th>
+            <th
+              class="cell header"
+              :style="{
+                textAlign: 'left',
+                width: '60%',
+              }"
+            >
+              Description
+            </th>
+            <th
+              class="cell header button item-create"
+              @click.prevent.stop="addChamber()"
+            >
+              + Add
+            </th>
+          </tr>
+        </thead>
+        <tbody
+          v-if="state.showChambers"
+          style="text-align: left"
+        >
+          <template
+            v-for="(item, index) in chambers"
+            :key="`chamber-${index}`"
+          >
+            <tr class="item-row item">
+              <td
+                class="cell item-name"
+                :class="{
+                  lastRow: index === state.chambers.length - 1,
+                }"
+              >
+                <input
+                  :data-name="`LEGEND__state.chambers[${index}].name`"
+                  type="text"
+                  v-model="item.name"
+                />
+              </td>
+              <td
+                class="cell"
+                style="width: 60%"
+                :class="{
+                  lastRow: index === state.chambers.length - 1,
+                }"
+              >
+                <input
+                  :data-name="`LEGEND__state.chambers[${index}].effect`"
+                  type="text"
+                  v-model="item.desc"
+                />
+              </td>
+              <td
+                class="cell cell--buttons"
+                :class="{
+                  lastRow: index === state.chambers.length - 1,
+                }"
+              >
+                <span
+                  class="button stoneButton item-edit"
+                  title="Edit Item"
+                  @click.prevent="item.edit = !item.edit"
+                  ><i
+                    class="fas"
+                    :class="{
+                      'fa-edit': !item.edit,
+                      'fa-window-minimize': item.edit,
+                    }"
+                  ></i
+                ></span>
+                <span
+                  class="button stoneButton item-delete"
+                  title="Delete Item"
+                  @click.prevent.stop="deleteChamber(index)"
+                  ><i class="fas fa-times-circle"></i
+                ></span>
+              </td>
+            </tr>
+            <tr v-if="item.edit">
+              <td
+                class="cell"
+                colspan="3"
+              >
+                <EffectsList
+                  type="LEGEND"
+                  cat="chambers"
                   :index="index"
                   :item="item"
                 />
