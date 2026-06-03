@@ -1,11 +1,18 @@
 <script lang="ts" setup>
+import type * as TYPES from "@/types/beast-types";
 import * as DATA from "@/scripts/utils/data";
+
 import { computed, ref, useModel, type Ref } from "vue";
 const props = defineProps<{
-  type: keyof DATA.TabMap;
+  type: keyof TYPES.TabMap;
   cat: string;
   index: number;
-  item: DATA.Atavism | DATA.Nightmare | DATA.Gift | DATA.LairTraitV1;
+  item:
+    | TYPES.Atavism
+    | TYPES.Nightmare
+    | TYPES.Gift
+    | TYPES.LairTraitV1
+    | TYPES.Chamber;
 }>();
 const item = useModel(props, "item");
 type Keys = Array<keyof typeof item.value.effects>;
