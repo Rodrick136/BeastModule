@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "start": "bun run start_server.ts",
+    "dev": "bun run build_module.ts && bun run start_server.ts",
     "build": "bun run build_module.ts",
     "release": "bun run build_release.ts"
   },
@@ -23,6 +24,7 @@
     "@vueuse/core": "^14.3.0",
     "common-tags": "^1.8.2",
     "just-diff": "^6.0.2",
+    "just-extend": "^6.2.0",
     "vue": "^3.5.35"
   }
 }
