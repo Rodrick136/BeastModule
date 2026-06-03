@@ -1,15 +1,13 @@
 import { html } from "common-tags";
 import { Logger } from "../logging";
-const { ApplicationV2 } = foundry.applications.api;
-
-type ApplicationRenderOptions = foundry.applications.types.ApplicationRenderOptions;
+import { DicePoolForm, type DicePoolOptions } from "./dice-pool-form";
 
 export type RollOptions = {
-  dicePool: number,
-  successThreshold: number,
-  explodesThreshold: number,
-  rote: boolean,
-  amount: number,
+  dicePool: number;
+  successThreshold: number;
+  explodesThreshold: number;
+  rote: boolean;
+  amount: number;
 };
 export const DEFAULT_ROLL_OPTIONS: RollOptions = {
   dicePool: 0,
@@ -18,54 +16,6 @@ export const DEFAULT_ROLL_OPTIONS: RollOptions = {
   rote: false,
   amount: 1,
 } as const;
-export type DicePoolOptions = {
-  cat: string,
-  name: string,
-  rollOptions?: Partial<RollOptions>,
-};
-
-export class DicePoolForm extends ApplicationV2 {
-  actor: ActorSheet.Any["actor"];
-  dicePoolOptions: DicePoolOptions;
-  constructor(
-    actor: ActorSheet.Any["actor"],
-    options: DicePoolOptions
-  ) {
-    super();
-    this.actor = actor;
-    this.dicePoolOptions = options;
-  }
-  static override DEFAULT_OPTIONS = {
-    id: `form-${crypto.randomUUID()}`,
-    window: {
-      framed: true,
-      title: "Dice Pool Options",
-      resizable: true,
-    },
-    position: {
-      width: "auto" as const,
-      height: "auto" as const,
-    },
-  };
-
-  override async _renderHTML(context: any, options: ApplicationRenderOptions): Promise<any> {
-    //Logger("Form _renderHTML", { context, options });
-    const element = document.createElement("beast-dice-pool-options");
-    //@ts-ignore
-    element.application = this;
-    return element;
-  }
-
-  override async _replaceHTML(result: Element, content: HTMLElement, options: ApplicationRenderOptions): Promise<void> {
-    //Logger("Form _replaceHTML", { result, options });
-
-    content.innerHTML = "";
-    content.appendChild(result);
-
-    //Logger("Form Rendered _replaceHTML", { content });
-    return;
-  }
-}
 
 type ResolvedDieResult = {
   term: Roll.Evaluated<Roll<{}>>["dice"][number]["results"][number];
@@ -76,8 +26,8 @@ type ResolvedDieResult = {
 
 export type DicePoolResolvedItem = {
   roll: Roll<{}>;
-  results: ResolvedDieResult[],
-  options: Partial<RollOptions>
+  results: ResolvedDieResult[];
+  options: Partial<RollOptions>;
 };
 async function resolveDicePool(
   options?: Partial<RollOptions>,
@@ -146,7 +96,7 @@ function printDieLists(items: DicePoolResolvedItem[]) {
       const className = `roll die d10 ${success} ${exploded}`.trim();
       const resultHtml: string = html`<li class="die-result">
         <p class="${className}">${result.term.result}</p>
-        ${childrenLists.map(i => i.listHtml)}
+        ${childrenLists.map((i) => i.listHtml)}
       </li>`;
       listItems.push({
         listItemHtml: resultHtml,
@@ -156,25 +106,21 @@ function printDieLists(items: DicePoolResolvedItem[]) {
 
     if (listItems.length > 0) {
       const listHtml = html`<ol class="dice-rolls">
-        ${listItems.map(i => i.listItemHtml)}
+        ${listItems.map((i) => i.listItemHtml)}
       </ol>`;
 
       lists.push({
         listItems,
         listHtml,
         item,
-      })
+      });
     }
   }
 
   return lists;
 }
 
-function printDiceMessage(
-  name: string,
-  items: DicePoolResolvedItem[],
-) {
-
+function printDiceMessage(name: string, items: DicePoolResolvedItem[]) {
   const gatherData = (items: DicePoolResolvedItem[]) => {
     let successTotal = 0;
     for (const item of items) {
@@ -194,31 +140,40 @@ function printDiceMessage(
 
   const lists = printDieLists(items);
 
-  const parts = lists.map((list, index) => html`<section class="tooltip-part">
-    <div class="dice">
-      <header class="part-header flexrow">
-        <span class="part-formula">Roll #:</span>
-        <span class="part-total">${index + 1}</span>
-      </header>
-      <header class="part-header flexrow">
-        <span class="part-formula">Successes:</span>
-        <span class="part-total">${gatherData([list.item])}</span>
-      </header>
-      <header class="part-header flexrow">
-        <span class="part-formula">Success Threshold:</span>
-        <span class="part-total">${list.item.options.successThreshold}</span>
-      </header>
-      <header class="part-header flexrow">
-        <span class="part-formula">Explodes Threshold:</span>
-        <span class="part-total">${list.item.options.explodesThreshold}</span>
-      </header>
-      <header class="part-header flexrow">
-        <span class="part-formula">Rote Quality:</span>
-        <span class="part-total">${list.item.options.rote ? "Yes" : "No"}</span>
-      </header>
-      ${list.listHtml}
-    </div>
-  </section>`);
+  const parts = lists.map(
+    (list, index) =>
+      html`<section class="tooltip-part">
+        <div class="dice">
+          <header class="part-header flexrow">
+            <span class="part-formula">Roll #:</span>
+            <span class="part-total">${index + 1}</span>
+          </header>
+          <header class="part-header flexrow">
+            <span class="part-formula">Successes:</span>
+            <span class="part-total">${gatherData([list.item])}</span>
+          </header>
+          <header class="part-header flexrow">
+            <span class="part-formula">Success Threshold:</span>
+            <span class="part-total"
+              >${list.item.options.successThreshold}</span
+            >
+          </header>
+          <header class="part-header flexrow">
+            <span class="part-formula">Explodes Threshold:</span>
+            <span class="part-total"
+              >${list.item.options.explodesThreshold}</span
+            >
+          </header>
+          <header class="part-header flexrow">
+            <span class="part-formula">Rote Quality:</span>
+            <span class="part-total"
+              >${list.item.options.rote ? "Yes" : "No"}</span
+            >
+          </header>
+          ${list.listHtml}
+        </div>
+      </section>`,
+  );
 
   const msg = html`<div
     class="dice-roll"
@@ -227,9 +182,7 @@ function printDiceMessage(
     <div class="dice-result">
       <div class="dice-formula">${name}</div>
       <div class="dice-tooltip">
-        <div class="wrapper">
-          ${parts}
-        </div>
+        <div class="wrapper">${parts}</div>
       </div>
 
       <h4 class="dice-total">${successTotal}</h4>
@@ -258,22 +211,29 @@ export async function printDicePool(form: DicePoolForm) {
           rolls = rolls.concat(childRolls);
         }
       }
-
     }
     return rolls;
   };
-  ChatMessage.create({
-    speaker: ChatMessage.getSpeaker({ actor: form.actor }),
-    flavor: cat,
-    content: msg,
-    sound: CONFIG.sounds.dice,
-    rolls: gatherRolls(results),
-  });
+  const rollMode = game.settings?.get("core", "rollMode") ?? "publicroll";
+
+  ChatMessage.create(
+    {
+      speaker: ChatMessage.getSpeaker({ actor: form.actor }),
+      flavor: cat,
+      content: msg,
+      sound: CONFIG.sounds.dice,
+      rolls: gatherRolls(results),
+    },
+    {
+      rollMode,
+      chatBubble: false,
+    },
+  );
 }
 
 export async function renderDicePoolForm(
   actor: ActorSheet.Any["actor"],
-  options: DicePoolOptions
+  options: DicePoolOptions,
 ) {
   try {
     const form = new DicePoolForm(actor, options);
