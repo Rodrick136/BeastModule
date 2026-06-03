@@ -63,7 +63,7 @@ const addBeat = async () => {
         <p><strong>Reason:</strong> ${prompt.reason}</p>
         <p><strong>Beats:</strong> ${prompt.beats}</p>
       `,
-      sound: CONFIG.sounds.notification,
+      sound: "modules/beast/assets/beat-click.mp3",
     },
     {
       rollMode: "publicroll",

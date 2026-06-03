@@ -33,14 +33,58 @@ await Bun.build({
 });
 
 // Copy files to output
-await Bun.$`cp ./src/module.json ${output}/`.quiet();
-await Bun.$`cp -r ./src/lang ${output}/`.quiet();
+import ModuleJSON from "./src/module.json" with { type: "json" };
+{
+  await Bun.$`mkdir -p ${output}/styles/`.quiet();
+  await Bun.$`mv ${output}/**/*.css ${output}/styles/`.quiet();
 
-await Bun.$`mkdir -p ${output}/styles/`.quiet();
-await Bun.$`mv ${output}/**/*.css ${output}/styles/`.quiet();
+  const { version } = ModuleJSON;
+  const module_json = JSON.parse(JSON.stringify(ModuleJSON)) as typeof ModuleJSON;
 
-const foundry = "./foundry/data/Data/modules/beast" as const;
-await Bun.$`rm -rf ${foundry}`.quiet();
-await Bun.$`mkdir -p ${foundry}`.quiet();
+  const version_label = version.replace(/\./g, "_");
+  const output_scripts = (await readdir(output, {
+    recursive: true,
+    withFileTypes: true,
+  })
+  ).filter((item) => {
+    const isDir = item.isDirectory() === false;
+    return isDir && !item.name.endsWith(".json");
+  });
 
-await Bun.$`cp -r ${output}/* ${foundry}/`.quiet();
+  const esmodules: string[] = [];
+  const styles: string[] = [];
+  for (const script of output_scripts) {
+    const part1 = script.name.split(".")[0];
+    const part2 = script.name.split(".")[1];
+
+    const name = `${part1}__${version_label}.${part2}`;
+    const start = `${script.parentPath}/${script.name}`;
+    const end = `${script.parentPath}/${name}`;
+    await Bun.$`mv ${start} ${end}`.quiet();
+
+    if (part2 === "js") {
+      esmodules.push(`scripts/${name}`);
+    } else if (part2 === "css") {
+      styles.push(`styles/${name}`);
+    }
+  }
+
+  //@ts-expect-error
+  module_json.esmodules = esmodules;
+  //@ts-expect-error
+  module_json.styles = styles;
+
+  module_json.download = module_json.download.replace("VERSION", `v${version}`);
+
+  const module_contents = JSON.stringify(module_json, null, 2);
+  await Bun.write(`${output}/module.json`, module_contents);
+
+  await Bun.$`cp -r ./src/lang ${output}/`.quiet();
+  await Bun.$`cp -r ./src/assets ${output}/`.quiet();
+
+  const foundry = "./foundry/data/Data/modules/beast" as const;
+  await Bun.$`rm -rf ${foundry}`.quiet();
+  await Bun.$`mkdir -p ${foundry}`.quiet();
+
+  await Bun.$`cp -r ${output}/* ${foundry}/`.quiet();
+}
