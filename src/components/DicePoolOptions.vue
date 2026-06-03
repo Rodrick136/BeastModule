@@ -1,20 +1,12 @@
 <script lang="ts" setup>
+import { Clone } from "@/scripts/utils/data";
 import { Logger } from "@/scripts/utils/logging";
+import type { DicePoolForm } from "@/scripts/utils/rolls/dice-pool-form";
 import {
   DEFAULT_ROLL_OPTIONS,
   printDicePool,
-  type DicePoolForm,
-  type DicePoolOptions,
 } from "@/scripts/utils/rolls/rolls";
-import { cloneFnJSON } from "@vueuse/core";
-import {
-  computed,
-  onMounted,
-  ref,
-  shallowRef,
-  watch,
-  type PropType,
-} from "vue";
+import { computed, ref, watch, type PropType } from "vue";
 
 const props = defineProps({
   application: {
@@ -25,7 +17,7 @@ const props = defineProps({
 const dicePoolOptions = ref({
   cat: "",
   name: "",
-  rollOptions: cloneFnJSON(DEFAULT_ROLL_OPTIONS),
+  rollOptions: Clone(DEFAULT_ROLL_OPTIONS),
 });
 watch(
   () => props.application,
