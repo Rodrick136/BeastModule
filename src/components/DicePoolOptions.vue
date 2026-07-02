@@ -76,6 +76,7 @@ async function onSubmit(event: SubmitEvent) {
 
     if (dicePoolOptions.value && props.application) {
       props.application.dicePoolOptions = dicePoolOptions.value;
+      props.application.dicePoolOptions.rollOptions = rollOptions.value;
       await printDicePool(props.application);
     } else {
       Logger("No options provided for dice pool form", { props }, "error");
