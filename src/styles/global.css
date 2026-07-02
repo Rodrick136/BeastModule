@@ -1,0 +1,9 @@
+.beast-roll.expanded .tooltip-part {
+  &.odd {
+    background-color: var(--color-background-alt);
+  }
+  &:not(:first-child) {
+    padding: 16px 0;
+    border-bottom: 2px solid var(--color-message);
+  }
+}

@@ -7,18 +7,12 @@ import {
 } from "@/scripts/utils/data";
 import { Logger } from "@/scripts/utils/logging";
 import { BeatPrompt } from "@/scripts/utils/prompts";
-import { html, id } from "common-tags";
+import { renderDicePoolForm } from "@/scripts/utils/rolls/rolls";
+import { html } from "common-tags";
 import type { PropType } from "vue";
-import {
-  computed,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  shallowRef,
-  watch,
-} from "vue";
+import { onBeforeUnmount, onMounted, ref, shallowRef } from "vue";
 
-const isGM = game.user?.isGM;
+const isGM = !!game.user?.isGM;
 if (!isGM) {
   throw new Error("ScreenGM component can only be used by a GM user.");
 }
@@ -104,6 +98,13 @@ const addBeat = async () => {
   }
 };
 
+const makeRoll = () => {
+  return renderDicePoolForm(null, {
+    cat: "GM",
+    name: "GM Roll",
+  });
+};
+
 Logger("ScreenGM Component rendered", props);
 onMounted(() => {
   Logger("ScreenGM Component Mounted", props);
@@ -128,6 +129,23 @@ onBeforeUnmount(() => {
             @click.prevent="addBeat()"
           >
             Add Beat
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="gm-rolls">
+      <div class="gm-rolls--header">
+        <h5>Rolls</h5>
+      </div>
+      <div class="gm-rolls--content">
+        <div class="actions">
+          <button
+            type="button"
+            class="button stoneButton"
+            @click.prevent="makeRoll()"
+          >
+            Make Roll
           </button>
         </div>
       </div>

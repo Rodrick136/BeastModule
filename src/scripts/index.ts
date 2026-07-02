@@ -94,9 +94,6 @@ Hooks.on("renderActorSheet", (app, html, data) => {
       return renderDicePoolForm(app.actor, {
         cat: 'Character',
         name: app.actor.name,
-        rollOptions: {
-          dicePool: 1,
-        },
       })
     });
   }

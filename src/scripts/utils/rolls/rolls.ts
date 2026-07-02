@@ -2,218 +2,182 @@ import { html } from "common-tags";
 import { Logger } from "../logging";
 import { DicePoolForm, type DicePoolOptions } from "./dice-pool-form";
 
+export type DicePool = {
+  name: string;
+  desc: string | null;
+  num: number;
+};
 export type RollOptions = {
-  dicePool: number;
+  dicePools: DicePool[];
   successThreshold: number;
   explodesThreshold: number;
   rote: boolean;
   amount: number;
 };
 export const DEFAULT_ROLL_OPTIONS: RollOptions = {
-  dicePool: 0,
+  dicePools: [{ name: "Default", desc: null, num: 1 }],
   successThreshold: 8,
   explodesThreshold: 10,
   rote: false,
   amount: 1,
 } as const;
 
-type ResolvedDieResult = {
-  term: Roll.Evaluated<Roll<{}>>["dice"][number]["results"][number];
-  success: boolean;
-  exploded: boolean;
-  childRolls: DicePoolResolvedItem[];
+type DicePoolsResolved = {
+  config: RollOptions;
+  formula: string;
+  rolls: Roll.Evaluated<Roll<{}>>[];
 };
 
-export type DicePoolResolvedItem = {
-  roll: Roll<{}>;
-  results: ResolvedDieResult[];
-  options: Partial<RollOptions>;
-};
-async function resolveDicePool(
+async function resolveDicePools(
   options?: Partial<RollOptions>,
-  childRoll = false,
-): Promise<DicePoolResolvedItem[]> {
-  const config = { ...DEFAULT_ROLL_OPTIONS, ...options };
-
-  const items = [];
-  const amount = Math.max(1, config.amount);
-  for (let index = 1; index <= amount; index++) {
-    const roll = await new Roll(`${config.dicePool}d10`).evaluate();
-    const results: ResolvedDieResult[] = [];
-    for (const die of roll.dice) {
-      for (const term of die.results) {
-        const result: ResolvedDieResult = {
-          term,
-          success: term.result >= config.successThreshold,
-          exploded: term.result >= config.explodesThreshold,
-          childRolls: [],
-        };
-
-        if (result.success) {
-          if (result.exploded) {
-            const options = {
-              ...config,
-              dicePool: 1,
-              amount: 1,
-            };
-            result.childRolls = await resolveDicePool(options, true);
-          }
-        } else if (config.rote && !childRoll) {
-          const options = {
-            ...config,
-            dicePool: 1,
-            amount: 1,
-          };
-          result.childRolls = await resolveDicePool(options, true);
-        }
-
-        results.push(result);
-      }
+): Promise<DicePoolsResolved | null> {
+  try {
+    const config = { ...DEFAULT_ROLL_OPTIONS, ...options };
+    let reroll = "";
+    if (config.rote) {
+      reroll = `r<${config.successThreshold}`;
     }
-    const item = {
-      roll,
-      results,
-      options: config,
+    const explodes = `x>=${config.explodesThreshold}`;
+    const count = `cs>=${config.successThreshold}`;
+    const formula = config.dicePools
+      .map((pool) => {
+        return `${pool.num}d10${reroll}${explodes}${count}[${pool.name}]`; //ie 5d10r<8x>=8cs>=8
+      })
+      .join(" + ");
+
+    const rolls = [];
+    for (let i = 0; i < config.amount; i++) {
+      const roll = new Roll(formula).evaluate();
+      rolls.push(roll);
+    }
+
+    const result = {
+      config,
+      formula,
+      rolls: await Promise.all(rolls),
     };
-    items.push(item);
-  }
 
-  return items;
+    Logger("Resolved Roll", result);
+
+    return result;
+  } catch (error) {
+    Logger("Error resolving dice pools", { error }, "error");
+    return null;
+  }
 }
 
-function printDieLists(items: DicePoolResolvedItem[]) {
-  const lists = [];
-  for (const item of items) {
-    const listItems: {
-      listItemHtml: string;
-      result: ResolvedDieResult;
-    }[] = [];
-    for (const result of item.results) {
-      const success = result.success ? "success" : "";
-      const exploded = result.exploded ? "exploded" : "";
-      const childrenLists = printDieLists(result.childRolls);
+function printDicePoolsResolved(name: string, resolved: DicePoolsResolved) {
+  const { config, rolls } = resolved;
 
-      const className = `roll die d10 ${success} ${exploded}`.trim();
-      const resultHtml: string = html`<li class="die-result">
-        <p class="${className}">${result.term.result}</p>
-        ${childrenLists.map((i) => i.listHtml)}
-      </li>`;
-      listItems.push({
-        listItemHtml: resultHtml,
-        result,
-      });
-    }
+  const parts = [];
+  for (const roll of rolls) {
+    const die_parts = [];
+    for (const die of roll.dice) {
+      const list: string[] = [];
+      let exploded = 0;
 
-    if (listItems.length > 0) {
-      const listHtml = html`<ol class="dice-rolls">
-        ${listItems.map((i) => i.listItemHtml)}
-      </ol>`;
+      for (const result of die.results) {
+        const success = !!result.success ? "success" : "failure";
+        const explodedClass = !!result.exploded ? "exploded" : "";
+        if (result.exploded) exploded++;
 
-      lists.push({
-        listItems,
-        listHtml,
-        item,
-      });
-    }
-  }
-
-  return lists;
-}
-
-function printDiceMessage(name: string, items: DicePoolResolvedItem[]) {
-  const gatherData = (items: DicePoolResolvedItem[]) => {
-    let successTotal = 0;
-    for (const item of items) {
-      for (const result of item.results) {
-        if (result.success) {
-          successTotal++;
-        }
-        if (result.childRolls.length > 0) {
-          successTotal += gatherData(result.childRolls);
-        }
+        const classes = `roll die d10 ${success} ${explodedClass}`.trim();
+        const resultHtml: string = html`<li class="die-result">
+          <p class="${classes}">${result.result}</p>
+        </li>`;
+        list.push(resultHtml);
       }
+      const part = html`
+        <header class="part-header flexrow">
+          <span class="part-formula">Part Name:</span>
+          <span class="part-total">${die?.options?.flavor ?? "Unknown"}</span>
+        </header>
+        <header class="part-header flexrow">
+          <span class="part-formula">Formula:</span>
+          <span class="part-total">${die.formula.split("[")[0]}</span>
+        </header>
+        <header class="part-header flexrow">
+          <span class="part-formula">Successes:</span>
+          <span class="part-total">${die.total}</span>
+        </header>
+        <header class="part-header flexrow">
+          <span class="part-formula">Exploded:</span>
+          <span class="part-total">${exploded}</span>
+        </header>
+        <ol class="dice-rolls">
+          ${list}
+        </ol>`;
+      die_parts.push(part);
     }
 
-    return successTotal;
-  };
-  const successTotal = gatherData(items);
-
-  const lists = printDieLists(items);
-
-  const parts = lists.map(
-    (list, index) =>
-      html`<section class="tooltip-part">
+    const roll_num = rolls.indexOf(roll) + 1;
+    const even_or_odd = roll_num % 2 === 0 ? "even" : "odd";
+    const roll_html = html`<section class="tooltip-part ${even_or_odd}">
         <div class="dice">
           <header class="part-header flexrow">
             <span class="part-formula">Roll #:</span>
-            <span class="part-total">${index + 1}</span>
+            <span class="part-total">${roll_num}</span>
           </header>
-          <header class="part-header flexrow">
-            <span class="part-formula">Successes:</span>
-            <span class="part-total">${gatherData([list.item])}</span>
-          </header>
-          <header class="part-header flexrow">
-            <span class="part-formula">Success Threshold:</span>
-            <span class="part-total"
-              >${list.item.options.successThreshold}</span
-            >
-          </header>
-          <header class="part-header flexrow">
-            <span class="part-formula">Explodes Threshold:</span>
-            <span class="part-total"
-              >${list.item.options.explodesThreshold}</span
-            >
-          </header>
-          <header class="part-header flexrow">
-            <span class="part-formula">Rote Quality:</span>
-            <span class="part-total"
-              >${list.item.options.rote ? "Yes" : "No"}</span
-            >
-          </header>
-          ${list.listHtml}
+          ${die_parts}
         </div>
-      </section>`,
-  );
+      </section>`;
+    parts.push(roll_html);
+  }
 
-  const msg = html`<div
-    class="dice-roll"
+  const config_html = html`<section class="tooltip-part">
+    <div class="dice">
+      <header class="part-header flexrow">
+        <span class="part-formula">Amount:</span>
+        <span class="part-total">${config.amount}</span>
+      </header>
+      <header class="part-header flexrow">
+        <span class="part-formula">Success Threshold:</span>
+        <span class="part-total">${config.successThreshold}</span>
+      </header>
+      <header class="part-header flexrow">
+        <span class="part-formula">Explodes Threshold:</span>
+        <span class="part-total">${config.explodesThreshold}</span>
+      </header>
+      <header class="part-header flexrow">
+        <span class="part-formula">Rote Quality:</span>
+        <span class="part-total">${config.rote ? "Yes" : "No"}</span>
+      </header>
+    </div>
+  </section>`;
+
+  let successTotal = 0;
+  for (const roll of rolls) {
+    successTotal += roll.total;
+  }
+  const final = html`<div
+    class="dice-roll beast-roll"
     data-action="expandRoll"
   >
     <div class="dice-result">
       <div class="dice-formula">${name}</div>
       <div class="dice-tooltip">
-        <div class="wrapper">${parts}</div>
+        <div class="wrapper">${config_html} ${parts}</div>
       </div>
 
       <h4 class="dice-total">${successTotal}</h4>
     </div>
   </div>`;
 
-  return msg;
+  return final;
 }
 
 export async function printDicePool(form: DicePoolForm) {
   Logger("printDicePool", { form });
   const { cat, name, rollOptions } = form.dicePoolOptions;
 
-  const results = await resolveDicePool(rollOptions);
-  const msg = printDiceMessage(name, results);
-
-  Logger("Printing Roll Results", { results, msg });
-
-  const gatherRolls = (results: DicePoolResolvedItem[]): Roll<{}>[] => {
-    let rolls: Roll<{}>[] = [];
-    for (const item of results) {
-      rolls.push(item.roll);
-      for (const result of item.results) {
-        if (result.childRolls.length > 0) {
-          const childRolls = gatherRolls(result.childRolls);
-          rolls = rolls.concat(childRolls);
-        }
-      }
-    }
-    return rolls;
-  };
+  const resolved = await resolveDicePools(rollOptions);
+  let msg = "";
+  if (resolved) {
+    msg = printDicePoolsResolved(name, resolved);
+  } else {
+    msg = `<p>Error resolving dice pools, try again.</p>`;
+  }
+  // Logger("Printing Roll Results", { resolved, msg });
   const rollMode = game.settings?.get("core", "rollMode") ?? "publicroll";
 
   ChatMessage.create(
@@ -222,7 +186,6 @@ export async function printDicePool(form: DicePoolForm) {
       flavor: cat,
       content: msg,
       sound: CONFIG.sounds.dice,
-      rolls: gatherRolls(results),
     },
     {
       rollMode,
@@ -232,7 +195,7 @@ export async function printDicePool(form: DicePoolForm) {
 }
 
 export async function renderDicePoolForm(
-  actor: ActorSheet.Any["actor"],
+  actor: ActorSheet.Any["actor"] | null,
   options: DicePoolOptions,
 ) {
   try {

@@ -1,6 +1,7 @@
 /// <reference types="bun" />
 import vuePlugin from "@eckidevs/bun-plugin-vue";
 import { readdir } from "node:fs/promises";
+import path from "node:path";
 
 console.log("Building Foundry Module...");
 
@@ -35,7 +36,7 @@ await Bun.build({
 // Copy files to output
 import ModuleJSON from "./src/module.json" with { type: "json" };
 {
-  await Bun.$`mkdir -p ${output}/styles/`.quiet();
+  await Bun.$`cp -r ./src/styles ${output}`.quiet();
   await Bun.$`mv ${output}/**/*.css ${output}/styles/`.quiet();
 
   const { version } = ModuleJSON;
@@ -81,10 +82,14 @@ import ModuleJSON from "./src/module.json" with { type: "json" };
 
   await Bun.$`cp -r ./src/lang ${output}/`.quiet();
   await Bun.$`cp -r ./src/assets ${output}/`.quiet();
+}
 
-  const foundry = "./foundry/data/Data/modules/beast" as const;
-  await Bun.$`rm -rf ${foundry}`.quiet();
-  await Bun.$`mkdir -p ${foundry}`.quiet();
+{
+  const modules = path.resolve("./foundry/data/Data/modules");
+  const beast = path.join(modules, "beast");
+  await Bun.$`rm -rf ${beast}`.quiet();
 
-  await Bun.$`cp -r ${output}/* ${foundry}/`.quiet();
+  console.log(`Linking to ${modules}`);
+  const build = path.resolve(output);
+  await Bun.$`ln -sfn ${build} ${beast}`.quiet();
 }

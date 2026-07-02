@@ -14,7 +14,7 @@ const { state, save } = DATA.useTabStorage(props.id, "LEGEND");
 
 const isGM = Boolean(game.user?.isGM);
 const showAuditLog = shallowRef(false);
-const actor = game.actors?.get(props.id);
+const actor = game.actors?.get(props.id) as any;
 const system = actor?.system as any;
 const variant = system?.characterVariant || "beast";
 
@@ -681,7 +681,18 @@ const deleteGift = async (index: number) => {
                       cat: 'Nightmare',
                       name: item.name,
                       rollOptions: {
-                        dicePool: item.dicePool,
+                        dicePools: [
+                          {
+                            name: item.name,
+                            desc: 'Current Dice Pool',
+                            num: item.dicePool,
+                          },
+                          {
+                            name: 'Satiety',
+                            desc: 'What your Satiety is at right now.',
+                            num: state.satiety || 0,
+                          },
+                        ],
                       },
                     })
                   "
@@ -805,7 +816,13 @@ const deleteGift = async (index: number) => {
                       cat: 'Atavism',
                       name: item.name,
                       rollOptions: {
-                        dicePool: item.dicePool,
+                        dicePools: [
+                          {
+                            name: item.name,
+                            desc: 'Current Dice Pool',
+                            num: item.dicePool,
+                          },
+                        ],
                       },
                     })
                   "
@@ -939,7 +956,13 @@ const deleteGift = async (index: number) => {
                       cat: 'Gift',
                       name: item.name,
                       rollOptions: {
-                        dicePool: item.dicePool,
+                        dicePools: [
+                          {
+                            name: item.name,
+                            desc: 'Current Dice Pool',
+                            num: item.dicePool,
+                          },
+                        ],
                       },
                     })
                   "

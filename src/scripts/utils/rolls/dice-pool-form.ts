@@ -10,10 +10,10 @@ export type DicePoolOptions = {
 };
 
 export class DicePoolForm extends ApplicationV2 {
-  actor: ActorSheet.Any["actor"];
+  actor: ActorSheet.Any["actor"] | null;
   dicePoolOptions: DicePoolOptions;
   constructor(
-    actor: ActorSheet.Any["actor"],
+    actor: ActorSheet.Any["actor"] | null,
     options: DicePoolOptions
   ) {
     super();

@@ -1,6 +1,5 @@
 /// <reference types="bun" />
 export { }
-
 console.log("Building release...");
 
 // run build_module.ts
