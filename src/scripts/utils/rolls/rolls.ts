@@ -180,10 +180,11 @@ export async function printDicePool(form: DicePoolForm) {
   // Logger("Printing Roll Results", { resolved, msg });
   const rollMode = game.settings?.get("core", "rollMode") ?? "publicroll";
 
+  const flavor = rollOptions?.dicePools?.map((pool) => pool.name).join(", ");
   ChatMessage.create(
     {
       speaker: ChatMessage.getSpeaker({ actor: form.actor }),
-      flavor: cat,
+      flavor: flavor ?? cat,
       content: msg,
       sound: CONFIG.sounds.dice,
     },
