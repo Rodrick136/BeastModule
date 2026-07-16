@@ -1,16 +1,17 @@
 import { defineCustomElement } from "vue";
-import LifeTab from "./LifeTab.vue";
-import LegendTab from "./LegendTab.vue";
-import DicePoolOptions from "./DicePoolOptions.vue";
 
+const LifeTab = await import("./LifeTab.vue").then((m) => m.default);
 const LifeTabDefinition = defineCustomElement(LifeTab, {
   shadowRoot: false,
 });
 
+
+const LegendTab = await import("./LegendTab.vue").then((m) => m.default);
 const LegendTabDefinition = defineCustomElement(LegendTab, {
   shadowRoot: false,
 });
 
+const DicePoolOptions = await import("./DicePoolOptions.vue").then((m) => m.default);
 const DicePoolOptionsDefinition = defineCustomElement(DicePoolOptions, {
   shadowRoot: false,
 });

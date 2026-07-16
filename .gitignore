@@ -6,6 +6,7 @@ out
 dist
 *.tgz
 build
+script-build
 
 # code coverage
 coverage

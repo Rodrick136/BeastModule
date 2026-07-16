@@ -6,18 +6,19 @@ export type DicePool = {
   name: string;
   desc: string | null;
   num: number;
+  trait?: string;
 };
 export type RollOptions = {
   dicePools: DicePool[];
   successThreshold: number;
-  explodesThreshold: number;
+  explodes: number | null;
   rote: boolean;
   amount: number;
 };
 export const DEFAULT_ROLL_OPTIONS: RollOptions = {
   dicePools: [{ name: "Default", desc: null, num: 1 }],
   successThreshold: 8,
-  explodesThreshold: 10,
+  explodes: 10,
   rote: false,
   amount: 1,
 } as const;
@@ -33,11 +34,9 @@ async function resolveDicePools(
 ): Promise<DicePoolsResolved | null> {
   try {
     const config = { ...DEFAULT_ROLL_OPTIONS, ...options };
-    let reroll = "";
-    if (config.rote) {
-      reroll = `r<${config.successThreshold}`;
-    }
-    const explodes = `x>=${config.explodesThreshold}`;
+
+    const reroll = config.rote ? `r<${config.successThreshold}` : "";
+    const explodes = config.explodes ? `x>=${config.explodes}` : "";
     const count = `cs>=${config.successThreshold}`;
     const formula = config.dicePools
       .map((pool) => {
@@ -87,8 +86,7 @@ function printDicePoolsResolved(name: string, resolved: DicePoolsResolved) {
         </li>`;
         list.push(resultHtml);
       }
-      const part = html`
-        <header class="part-header flexrow">
+      const part = html` <header class="part-header flexrow">
           <span class="part-formula">Part Name:</span>
           <span class="part-total">${die?.options?.flavor ?? "Unknown"}</span>
         </header>
@@ -113,14 +111,14 @@ function printDicePoolsResolved(name: string, resolved: DicePoolsResolved) {
     const roll_num = rolls.indexOf(roll) + 1;
     const even_or_odd = roll_num % 2 === 0 ? "even" : "odd";
     const roll_html = html`<section class="tooltip-part ${even_or_odd}">
-        <div class="dice">
-          <header class="part-header flexrow">
-            <span class="part-formula">Roll #:</span>
-            <span class="part-total">${roll_num}</span>
-          </header>
-          ${die_parts}
-        </div>
-      </section>`;
+      <div class="dice">
+        <header class="part-header flexrow">
+          <span class="part-formula">Roll #:</span>
+          <span class="part-total">${roll_num}</span>
+        </header>
+        ${die_parts}
+      </div>
+    </section>`;
     parts.push(roll_html);
   }
 
@@ -135,8 +133,10 @@ function printDicePoolsResolved(name: string, resolved: DicePoolsResolved) {
         <span class="part-total">${config.successThreshold}</span>
       </header>
       <header class="part-header flexrow">
-        <span class="part-formula">Explodes Threshold:</span>
-        <span class="part-total">${config.explodesThreshold}</span>
+        <span class="part-formula">Explodes:</span>
+        <span class="part-total"
+          >${config.explodes ? config.explodes : "No"}</span
+        >
       </header>
       <header class="part-header flexrow">
         <span class="part-formula">Rote Quality:</span>
@@ -192,6 +192,20 @@ export async function printDicePool(form: DicePoolForm) {
       chatBubble: false,
     },
   );
+
+  if (form.actor) {
+    const el = document.getElementById(`MtAActorSheet-Actor-${form.actor.id}`);
+    for (const pool of rollOptions?.dicePools ?? []) {
+      if (pool.trait) {
+        const input = el?.querySelector(
+          `input[data-trait="${pool.trait}"].attribute-check:checked`,
+        ) as HTMLInputElement | null | undefined;
+        if (input) {
+          input.checked = false;
+        }
+      }
+    }
+  }
 }
 
 export async function renderDicePoolForm(

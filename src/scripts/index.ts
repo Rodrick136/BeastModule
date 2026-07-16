@@ -2,9 +2,10 @@ import { Logger } from "@/scripts/utils/logging";
 import MTAConfig from "@/scripts/data/mta_config";
 import Definitions from "../components/definitions";
 import { html } from "common-tags";
-import { renderDicePoolForm } from "./utils/rolls/rolls";
+import { DEFAULT_ROLL_OPTIONS, renderDicePoolForm, type DicePool } from "./utils/rolls/rolls";
 import { ScreenGM } from "./screen-gm/application";
 import { RegisterModuleData } from "./utils/data";
+import type { DicePoolOptions } from "./utils/rolls/dice-pool-form";
 
 window.BeastEphemeralData = {
   debug: true,
@@ -79,6 +80,46 @@ const diceRollerMacro = html`<div
   />
 </div>`;
 
+function toSentenceCase(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
+async function diceRollerMacroClicked(app: ActorSheet, html: JQuery<HTMLElement>) {
+  Logger("Dice Roller Macro Clicked", { app });
+  const data = await app.getData() as any;
+  const rollableInputs = html.find("input[data-trait].attribute-check:checked")
+
+  const pools: DicePool[] = [];
+  for (const input of rollableInputs) {
+    const parts = (input.dataset.trait as string).split(".");
+    const trait = parts.reduce((acc, key) => acc?.[key], data.system);
+    if (trait) {
+      const label = html.find(`label[for="${input.id}"]`);
+      const labelText = label?.text().trim() ?? toSentenceCase(parts.at(-1) ?? "unknown");
+      const pool: DicePool = {
+        name: labelText,
+        desc: null,
+        num: trait?.final ?? 0,
+        trait: input.dataset.trait,
+      };
+      pools.push(pool);
+    }
+  }
+
+  const options: DicePoolOptions = {
+    cat: 'Character',
+    name: app.actor.name,
+  }
+  if (pools.length > 0) {
+    options.rollOptions = {
+      ...DEFAULT_ROLL_OPTIONS,
+      dicePools: pools,
+    }
+  }
+
+  return renderDicePoolForm(app.actor, options);
+}
+
 Hooks.on("renderActorSheet", (app, html, data) => {
   // @ts-ignore
   if (app.actor.type !== "character") return;
@@ -89,13 +130,7 @@ Hooks.on("renderActorSheet", (app, html, data) => {
     el.outerHTML = diceRollerMacro;
 
     const button = html.find("div.characterMacroPanel .diceRollerButton");
-    button.on("click", () => {
-      Logger("Dice Roller Macro Clicked", { app });
-      return renderDicePoolForm(app.actor, {
-        cat: 'Character',
-        name: app.actor.name,
-      })
-    });
+    button.on("click", () => diceRollerMacroClicked(app, html));
   }
 
   // @ts-ignore

@@ -53,6 +53,16 @@ watch(
   },
   { deep: false, immediate: true },
 );
+const explodes = computed({
+  get: () => rollOptions.value.explodes !== null,
+  set: (value: boolean) => {
+    if (value) {
+      rollOptions.value.explodes = 10;
+    } else {
+      rollOptions.value.explodes = null;
+    }
+  },
+});
 const loading = computed(() => !props.application);
 const errors = reactive<Record<string, string | undefined>>({});
 
@@ -113,6 +123,9 @@ function removeFromPool(index: number) {
 function clearPool() {
   rollOptions.value.dicePools = Clone(DEFAULT_ROLL_OPTIONS.dicePools);
 }
+function reset() {
+  rollOptions.value = Clone(DEFAULT_ROLL_OPTIONS);
+}
 </script>
 <template>
   <form
@@ -156,7 +169,7 @@ function clearPool() {
             title="The number of dice to roll."
             type="number"
             v-model.number="dicePool.num"
-            min="1"
+            min="0"
             max="100"
           />
           <button
@@ -183,10 +196,15 @@ function clearPool() {
     <label title="What the dice need to meet or beat to explode.">
       <p>Explodes Threshold:</p>
       <input
+        type="checkbox"
+        v-model="explodes"
+      />
+      <input
         type="number"
-        v-model.number="rollOptions.explodesThreshold"
-        min="2"
+        v-model.number="rollOptions.explodes"
+        min="1"
         max="10"
+        :disabled="rollOptions.explodes === null"
       />
     </label>
     <label>
@@ -216,11 +234,24 @@ function clearPool() {
         <p v-if="error">{{ error }}</p>
       </template>
     </div>
-    <button type="submit">Execute</button>
+    <div class="actions">
+      <button
+        type="button"
+        @click="reset"
+        class="button stoneButton item-reset"
+        title="Reset all options to their default values."
+      >
+        <i class="fas fa-undo"></i>
+      </button>
+      <button type="submit">Execute</button>
+    </div>
   </form>
 </template>
 <style>
 .beast-dice-pool-options {
+  --background-button-remove: linear-gradient(#d8464e9e, #3f050bad);
+  --background-button-add: linear-gradient(#74d244a6, #425612a3);
+
   display: flex;
   flex-direction: column;
   gap: 1rem;
@@ -231,17 +262,19 @@ function clearPool() {
     pointer-events: none;
   }
 
+  & .actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
   & fieldset {
     display: flex;
     flex-direction: column;
     gap: 8px;
 
     & legend {
-      display: flex;
-      gap: 8px;
-    }
-
-    & .actions {
       display: flex;
       gap: 8px;
     }
@@ -264,6 +297,10 @@ function clearPool() {
       padding: 8px;
       font-size: 1rem;
     }
+
+    & input[type="checkbox"] {
+      width: 20px;
+    }
   }
 
   & .item-delete {
@@ -284,6 +321,10 @@ function clearPool() {
     background: var(--color-level-error-bg);
     font-weight: bold;
     padding: 8px;
+  }
+
+  & button[type="submit"] {
+    min-width: 200px;
   }
 }
 </style>
