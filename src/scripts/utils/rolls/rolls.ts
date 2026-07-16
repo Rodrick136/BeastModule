@@ -35,12 +35,24 @@ async function resolveDicePools(
   try {
     const config = { ...DEFAULT_ROLL_OPTIONS, ...options };
 
+    const totalDice = config.dicePools.reduce((acc, pool) => acc + pool.num, 0);
+    if (totalDice === 0) {
+      const fatePool: DicePool = {
+        name: "Fate",
+        desc: "Your Fate Beckons",
+        num: 1,
+      };
+      config.dicePools.push(fatePool);
+      config.explodes = null;
+    }
+
     const reroll = config.rote ? `r<${config.successThreshold}` : "";
     const explodes = config.explodes ? `x>=${config.explodes}` : "";
     const count = `cs>=${config.successThreshold}`;
     const formula = config.dicePools
       .map((pool) => {
-        return `${pool.num}d10${reroll}${explodes}${count}[${pool.name}]`; //ie 5d10r<8x>=8cs>=8
+        const num = Math.max(pool.num.toNearest(1, "floor"), 0);
+        return `${num}d10${reroll}${explodes}${count}[${pool.name}]`; //ie 5d10r<8x>=8cs>=8
       })
       .join(" + ");
 
@@ -149,6 +161,10 @@ function printDicePoolsResolved(name: string, resolved: DicePoolsResolved) {
   for (const roll of rolls) {
     successTotal += roll.total;
   }
+
+  const exceptional =
+    successTotal >= config.amount * 5 ? "exceptionalSuccess" : "";
+  const failure = successTotal === 0 ? "dramaticFailure" : "";
   const final = html`<div
     class="dice-roll beast-roll"
     data-action="expandRoll"
@@ -159,7 +175,7 @@ function printDicePoolsResolved(name: string, resolved: DicePoolsResolved) {
         <div class="wrapper">${config_html} ${parts}</div>
       </div>
 
-      <h4 class="dice-total">${successTotal}</h4>
+      <h4 class="dice-total ${failure}${exceptional}">${successTotal}</h4>
     </div>
   </div>`;
 

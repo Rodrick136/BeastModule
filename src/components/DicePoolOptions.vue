@@ -5,6 +5,7 @@ import type { DicePoolForm } from "@/scripts/utils/rolls/dice-pool-form";
 import {
   DEFAULT_ROLL_OPTIONS,
   printDicePool,
+  type DicePool,
 } from "@/scripts/utils/rolls/rolls";
 import { useLocalStorage } from "@vueuse/core";
 import { computed, reactive, ref, shallowRef, watch, type PropType } from "vue";
@@ -127,6 +128,12 @@ function clearPool() {
 function reset() {
   rollOptions.value = Clone(DEFAULT_ROLL_OPTIONS);
 }
+
+function minusFromDicePool(dicePool: DicePool) {
+  if (dicePool.num > 0) {
+    dicePool.num -= 1;
+  }
+}
 </script>
 <template>
   <form
@@ -172,6 +179,22 @@ function reset() {
             type="text"
             v-model="dicePool.name"
           />
+          <button
+            type="button"
+            @click="dicePool.num += 1"
+            class="button stoneButton item-add"
+            data-tooltip="Add a die to the roll."
+          >
+            <i class="fas fa-plus"></i>
+          </button>
+          <button
+            type="button"
+            @click="minusFromDicePool(dicePool)"
+            class="button stoneButton item-delete"
+            data-tooltip="Remove a die from the roll."
+          >
+            <i class="fas fa-minus"></i>
+          </button>
           <input
             data-tooltip="The number of dice to roll."
             type="number"
