@@ -296,3 +296,14 @@ export function useTabStorage<T extends keyof TYPES.TabMap>(
 
   return { state, save };
 }
+
+export function Handlize(str: string) {
+  return str
+    .toLowerCase()
+    // only allow a-z and 0-9, replace all other characters with a dash
+    .replace(/[^a-z0-9]+/g, "-")
+    // replace multiple dashes with a single dash
+    .replace(/-+/g, "-")
+    // remove leading and trailing dashes
+    .replace(/^-+|-+$/g, "");
+}

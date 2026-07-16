@@ -36,10 +36,5 @@
       "name": "English",
       "path": "lang/en.json"
     }
-  ],
-  "documentTypes": {
-    "Actor": {
-      "beastData": {}
-    }
-  }
+  ]
 }

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { Clone } from "@/scripts/utils/data";
+import { Clone, Handlize } from "@/scripts/utils/data";
 import { Logger } from "@/scripts/utils/logging";
 import type { DicePoolForm } from "@/scripts/utils/rolls/dice-pool-form";
 import {
@@ -33,7 +33,8 @@ watch(
       const name = newApp.dicePoolOptions.name || "Roll";
       dicePoolOptions.value = { cat, name };
 
-      const key = `beast--rollOptionsForm::${cat}-${name}`;
+      const handle = Handlize(`${cat}-${name}`);
+      const key = `beast--rollOptionsForm::${handle}`;
       const rollOptionsExisting = Clone(
         useLocalStorage(key, DEFAULT_ROLL_OPTIONS).value,
       );
@@ -133,6 +134,12 @@ function reset() {
     :class="{ loading }"
     @submit.prevent="onSubmit"
   >
+    <h3
+      style="width: max-content"
+      data-tooltip="Who you are rolling as"
+    >
+      {{ dicePoolOptions.name }}
+    </h3>
     <fieldset>
       <legend>
         <p>Dice Pool:</p>
@@ -141,7 +148,7 @@ function reset() {
             type="button"
             @click="addToPool()"
             class="button stoneButton item-add"
-            title="Add new additive dice to the roll."
+            data-tooltip="Add new additive dice to the roll."
           >
             <i class="fas fa-plus"></i>
           </button>
@@ -149,7 +156,7 @@ function reset() {
             type="button"
             @click="clearPool()"
             class="button stoneButton item-delete"
-            title="Clear all additive dice from the roll."
+            data-tooltip="Clear all additive dice from the roll."
           >
             <i class="fas fa-trash"></i>
           </button>
@@ -159,14 +166,14 @@ function reset() {
         v-for="(dicePool, index) in rollOptions.dicePools"
         :key="index"
       >
-        <label :title="`Number of dice because of ${dicePool.name}.`">
+        <label :data-tooltip="`Number of dice because of ${dicePool.name}.`">
           <input
-            title="The name of the dice, used for display purposes."
+            data-tooltip="The name of the dice, used for display purposes."
             type="text"
             v-model="dicePool.name"
           />
           <input
-            title="The number of dice to roll."
+            data-tooltip="The number of dice to roll."
             type="number"
             v-model.number="dicePool.num"
             min="0"
@@ -176,7 +183,7 @@ function reset() {
             type="button"
             @click="removeFromPool(index)"
             class="button stoneButton item-delete"
-            title="Remove these dice from the roll."
+            data-tooltip="Remove these dice from the roll."
           >
             <i class="fas fa-times-circle"></i>
           </button>
@@ -184,7 +191,7 @@ function reset() {
       </template>
     </fieldset>
 
-    <label title="What the dice need to meet or beat to succeed.">
+    <label data-tooltip="What the dice need to meet or beat to succeed.">
       <p>Success Threshold:</p>
       <input
         type="number"
@@ -193,7 +200,7 @@ function reset() {
         max="10"
       />
     </label>
-    <label title="What the dice need to meet or beat to explode.">
+    <label data-tooltip="What the dice need to meet or beat to explode.">
       <p>Explodes Threshold:</p>
       <input
         type="checkbox"
@@ -214,7 +221,7 @@ function reset() {
         v-model="rollOptions.rote"
       />
     </label>
-    <label title="The number of times to repeat the roll.">
+    <label data-tooltip="The number of times to repeat the roll.">
       <p>Amount:</p>
       <input
         type="number"
@@ -239,7 +246,7 @@ function reset() {
         type="button"
         @click="reset"
         class="button stoneButton item-reset"
-        title="Reset all options to their default values."
+        data-tooltip="Reset all options to their default values."
       >
         <i class="fas fa-undo"></i>
       </button>
@@ -249,6 +256,7 @@ function reset() {
 </template>
 <style>
 .beast-dice-pool-options {
+  --background-button: linear-gradient(#6cb0d2a1, #2f4a568c);
   --background-button-remove: linear-gradient(#d8464e9e, #3f050bad);
   --background-button-add: linear-gradient(#74d244a6, #425612a3);
 
@@ -325,6 +333,7 @@ function reset() {
 
   & button[type="submit"] {
     min-width: 200px;
+    background: var(--background-button);
   }
 }
 </style>

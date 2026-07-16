@@ -2,7 +2,11 @@ import { Logger } from "@/scripts/utils/logging";
 import MTAConfig from "@/scripts/data/mta_config";
 import Definitions from "../components/definitions";
 import { html } from "common-tags";
-import { DEFAULT_ROLL_OPTIONS, renderDicePoolForm, type DicePool } from "./utils/rolls/rolls";
+import {
+  DEFAULT_ROLL_OPTIONS,
+  renderDicePoolForm,
+  type DicePool,
+} from "./utils/rolls/rolls";
 import { ScreenGM } from "./screen-gm/application";
 import { RegisterModuleData } from "./utils/data";
 import type { DicePoolOptions } from "./utils/rolls/dice-pool-form";
@@ -32,7 +36,6 @@ Hooks.once("ready", async () => {
   );
 });
 
-
 Hooks.on("getSceneControlButtons", (controls) => {
   // Ensure the target core layer exists
   if (!controls.tokens) return;
@@ -59,8 +62,53 @@ Hooks.on("getSceneControlButtons", (controls) => {
       } catch (error) {
         Logger("Error rendering Beast GM Screen", { error }, "error");
       }
-    }
+    },
   };
+});
+
+/** Add the dice roller button **/
+// @ts-expect-error
+Hooks.on("renderChatInput", (chatApp, elements) => {
+  Logger("Adding Dice Roller Button", {
+    chatApp,
+    elements,
+    root: elements["#roll-privacy"],
+  });
+  const root = elements["#roll-privacy"] as HTMLDivElement | undefined;
+  if (!root) return;
+
+  const makeBTN = () => {
+    const btn = document.createElement("button");
+    btn.classList.add(
+      "ui-control",
+      "icon",
+      "cofd-d10-roller",
+      "beast-dice-roller",
+    );
+    btn.setAttribute("data-tooltip", "Dice Roller");
+    btn.setAttribute("data-tooltip-direction", "DOWN");
+    btn.addEventListener("click", (event) => {
+      event.preventDefault();
+      const actor =
+        canvas?.tokens?.controlled[0]?.actor ?? game.user?.character ?? null;
+
+      const options: DicePoolOptions = {
+        cat: "ChatDiceRoller",
+        name: actor?.name ?? game.user?.name ?? "Unknown",
+      };
+      return renderDicePoolForm(actor, options);
+    });
+
+    return btn;
+  };
+
+  const roller = root.querySelector(".cofd-d10-roller");
+  if (roller) {
+    if (roller.classList.contains("beast-dice-roller")) return;
+    roller.replaceWith(makeBTN());
+  } else {
+    root.appendChild(makeBTN());
+  }
 });
 
 //function handleCharacter() { }
@@ -84,22 +132,31 @@ function toSentenceCase(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
 }
 
-async function diceRollerMacroClicked(app: ActorSheet, html: JQuery<HTMLElement>) {
+async function diceRollerMacroClicked(
+  app: ActorSheet,
+  html: JQuery<HTMLElement>,
+) {
   Logger("Dice Roller Macro Clicked", { app });
-  const data = await app.getData() as any;
-  const rollableInputs = html.find("input[data-trait].attribute-check:checked")
+  const element = html[0];
+  const data = (await app.getData()) as any;
+  const rollableInputs = element.querySelectorAll(
+    "input[data-trait].attribute-check:checked",
+  ) as NodeListOf<HTMLInputElement>;
 
   const pools: DicePool[] = [];
   for (const input of rollableInputs) {
     const parts = (input.dataset.trait as string).split(".");
     const trait = parts.reduce((acc, key) => acc?.[key], data.system);
     if (trait) {
-      const label = html.find(`label[for="${input.id}"]`);
-      const labelText = label?.text().trim() ?? toSentenceCase(parts.at(-1) ?? "unknown");
+      const label = element.querySelector(
+        `label[for="${input.id}"]`,
+      ) as HTMLLabelElement | null;
+      const labelText =
+        label?.textContent?.trim() ?? toSentenceCase(parts.at(-1) ?? "unknown");
       const pool: DicePool = {
         name: labelText,
         desc: null,
-        num: trait?.final ?? 0,
+        num: trait?.final ?? trait?.value ?? 0,
         trait: input.dataset.trait,
       };
       pools.push(pool);
@@ -107,31 +164,35 @@ async function diceRollerMacroClicked(app: ActorSheet, html: JQuery<HTMLElement>
   }
 
   const options: DicePoolOptions = {
-    cat: 'Character',
+    cat: "Character",
     name: app.actor.name,
-  }
+  };
   if (pools.length > 0) {
     options.rollOptions = {
       ...DEFAULT_ROLL_OPTIONS,
       dicePools: pools,
-    }
+    };
   }
 
   return renderDicePoolForm(app.actor, options);
 }
 
 Hooks.on("renderActorSheet", (app, html, data) => {
-  // @ts-ignore
-  if (app.actor.type !== "character") return;
-  {
-    const macroPanel = html.find("div.characterMacroPanel > div");
+  const macroPanel = html.find("div.characterMacroPanel > div");
+  if (macroPanel.length > 0) {
+    const existing = macroPanel.find(".charMacroButton.rollButton");
+    if (existing.length > 0) {
+      existing.remove();
+    }
+
     const el = document.createElement("div");
     macroPanel.append(el);
     el.outerHTML = diceRollerMacro;
-
     const button = html.find("div.characterMacroPanel .diceRollerButton");
     button.on("click", () => diceRollerMacroClicked(app, html));
   }
+  // @ts-ignore
+  if (app.actor.type !== "character") return;
 
   // @ts-ignore
   if (app.actor.system.characterType !== "beast") return;
@@ -208,4 +269,3 @@ Hooks.on("closeActorSheet", (app, _html) => {
     data.changedElement = null;
   }
 });
-
