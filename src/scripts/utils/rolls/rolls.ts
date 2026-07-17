@@ -1,11 +1,13 @@
 import { html } from "common-tags";
 import { Logger } from "../logging";
 import { DicePoolForm, type DicePoolOptions } from "./dice-pool-form";
+import { Clone } from "../data";
 
 export type DicePool = {
   name: string;
   desc: string | null;
   num: number;
+  condition?: number;
   trait?: string;
 };
 export type RollOptions = {
@@ -33,10 +35,19 @@ async function resolveDicePools(
   options?: Partial<RollOptions>,
 ): Promise<DicePoolsResolved | null> {
   try {
-    const config = { ...DEFAULT_ROLL_OPTIONS, ...options };
+    const config = Clone({ ...DEFAULT_ROLL_OPTIONS, ...options });
 
-    const totalDice = config.dicePools.reduce((acc, pool) => acc + pool.num, 0);
-    if (totalDice === 0) {
+    const totalDice = config.dicePools.reduce(
+      (acc, pool) => acc + pool.num + (pool.condition ?? 0),
+      0,
+    );
+
+    Logger("Total Dice:", {
+      dicePools: config.dicePools,
+      totalDice,
+    });
+
+    if (totalDice <= 0) {
       const fatePool: DicePool = {
         name: "Fate",
         desc: "Your Fate Beckons",
@@ -44,14 +55,15 @@ async function resolveDicePools(
       };
       config.dicePools.push(fatePool);
       config.explodes = null;
+      config.successThreshold = 10;
     }
 
     const reroll = config.rote ? `r<${config.successThreshold}` : "";
-    const explodes = config.explodes ? `x>=${config.explodes}` : "";
+    const explodes = config.explodes !== null ? `x>=${config.explodes}` : "";
     const count = `cs>=${config.successThreshold}`;
     const formula = config.dicePools
       .map((pool) => {
-        const num = Math.max(pool.num.toNearest(1, "floor"), 0);
+        const num = Math.max(pool.num + (pool.condition ?? 0), 0);
         return `${num}d10${reroll}${explodes}${count}[${pool.name}]`; //ie 5d10r<8x>=8cs>=8
       })
       .join(" + ");
@@ -84,6 +96,9 @@ function printDicePoolsResolved(name: string, resolved: DicePoolsResolved) {
   for (const roll of rolls) {
     const die_parts = [];
     for (const die of roll.dice) {
+      const pool = config.dicePools.find((p) => p.name === die.options.flavor);
+      const isFateRoll = pool?.name === "Fate";
+
       const list: string[] = [];
       let exploded = 0;
 
@@ -92,7 +107,11 @@ function printDicePoolsResolved(name: string, resolved: DicePoolsResolved) {
         const explodedClass = !!result.exploded ? "exploded" : "";
         if (result.exploded) exploded++;
 
-        const classes = `roll die d10 ${success} ${explodedClass}`.trim();
+        const dramaticFailure = result.result === 1 ? "dramatic-failure" : "";
+        const fate = isFateRoll ? `fate-roll ${dramaticFailure}`.trim() : "";
+        const classList = [success, explodedClass, fate].filter(Boolean).join(" ");
+
+        const classes = `roll die d10 ${classList}`.trim();
         const resultHtml: string = html`<li class="die-result">
           <p class="${classes}">${result.result}</p>
         </li>`;
@@ -105,6 +124,10 @@ function printDicePoolsResolved(name: string, resolved: DicePoolsResolved) {
         <header class="part-header flexrow">
           <span class="part-formula">Formula:</span>
           <span class="part-total">${die.formula.split("[")[0]}</span>
+        </header>
+        <header class="part-header flexrow">
+          <span class="part-formula">Condition:</span>
+          <span class="part-total">${pool?.condition ?? 0}</span>
         </header>
         <header class="part-header flexrow">
           <span class="part-formula">Successes:</span>
@@ -161,10 +184,12 @@ function printDicePoolsResolved(name: string, resolved: DicePoolsResolved) {
   for (const roll of rolls) {
     successTotal += roll.total;
   }
+  //dramaticFailure
 
   const exceptional =
-    successTotal >= config.amount * 5 ? "exceptionalSuccess" : "";
-  const failure = successTotal === 0 ? "dramaticFailure" : "";
+    successTotal >= config.amount * 5 ? "exceptional-success" : "";
+  const outcome = successTotal === 0 ? "failure" : "success";
+
   const final = html`<div
     class="dice-roll beast-roll"
     data-action="expandRoll"
@@ -175,7 +200,7 @@ function printDicePoolsResolved(name: string, resolved: DicePoolsResolved) {
         <div class="wrapper">${config_html} ${parts}</div>
       </div>
 
-      <h4 class="dice-total ${failure}${exceptional}">${successTotal}</h4>
+      <h4 class="dice-total ${outcome} ${exceptional}">${successTotal}</h4>
     </div>
   </div>`;
 
@@ -219,6 +244,18 @@ export async function printDicePool(form: DicePoolForm) {
         ) as HTMLInputElement | null | undefined;
         if (input) {
           input.checked = false;
+        }
+      }
+
+      if (pool.trait === "willpower") {
+        // minus 1 willpower if rolled
+        // @ts-expect-error
+        const willpower = form.actor.system.willpower;
+        if (willpower.value > 0) {
+          await form.actor.update({
+            // @ts-expect-error
+            "system.willpower.value": willpower.value - 1,
+          });
         }
       }
     }

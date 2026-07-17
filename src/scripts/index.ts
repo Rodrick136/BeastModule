@@ -138,26 +138,37 @@ async function diceRollerMacroClicked(
 ) {
   Logger("Dice Roller Macro Clicked", { app });
   const element = html[0];
-  const data = (await app.getData()) as any;
+  const system = app.actor.system as Record<string, any>;
   const rollableInputs = element.querySelectorAll(
     "input[data-trait].attribute-check:checked",
   ) as NodeListOf<HTMLInputElement>;
 
   const pools: DicePool[] = [];
   for (const input of rollableInputs) {
-    const parts = (input.dataset.trait as string).split(".");
-    const trait = parts.reduce((acc, key) => acc?.[key], data.system);
+    const data_trait = input.dataset.trait as string;
+    const parts = data_trait.split(".");
+    const trait = parts.reduce((acc, key) => acc?.[key], system);
     if (trait) {
       const label = element.querySelector(
         `label[for="${input.id}"]`,
       ) as HTMLLabelElement | null;
       const labelText =
         label?.textContent?.trim() ?? toSentenceCase(parts.at(-1) ?? "unknown");
+      let num = trait?.final ?? trait?.value ?? 0;
+
+      if (data_trait === "willpower") {
+        if (num > 0) {
+          num = 3
+        } else {
+          continue; // skip willpower if it's 0 or less
+        }
+      };
+
       const pool: DicePool = {
         name: labelText,
         desc: null,
-        num: trait?.final ?? trait?.value ?? 0,
-        trait: input.dataset.trait,
+        num: num,
+        trait: data_trait,
       };
       pools.push(pool);
     }

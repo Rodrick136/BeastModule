@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { Clone, Handlize } from "@/scripts/utils/data";
 import { Logger } from "@/scripts/utils/logging";
+import { ConfirmationPrompt } from "@/scripts/utils/prompts";
 import type { DicePoolForm } from "@/scripts/utils/rolls/dice-pool-form";
 import {
   DEFAULT_ROLL_OPTIONS,
@@ -68,7 +69,7 @@ const explodes = computed({
 const loading = computed(() => !props.application);
 const errors = reactive<Record<string, string | undefined>>({});
 
-async function onSubmit(event: SubmitEvent) {
+async function onSubmit(event?: SubmitEvent) {
   try {
     {
       // check that all dice pools have a unique name
@@ -111,13 +112,17 @@ function addToPool() {
     num: 1,
   });
 }
-function removeFromPool(index: number) {
+async function removeFromPool(index: number) {
+  errors.lastPool = undefined;
+
+  //confirm with the user that they want to remove the dice pool
+  const confirm = await ConfirmationPrompt();
+  if (!confirm) return;
+
   // check that theere is at least one dice pool remaining
   if (rollOptions.value.dicePools.length <= 1) {
-    errors.lastPool = "There must be at least one die remaining.";
+    errors.lastPool = "There must be at least one remaining.";
     return;
-  } else {
-    errors.lastPool = undefined;
   }
 
   rollOptions.value.dicePools.splice(index, 1);
@@ -129,10 +134,92 @@ function reset() {
   rollOptions.value = Clone(DEFAULT_ROLL_OPTIONS);
 }
 
-function minusFromDicePool(dicePool: DicePool) {
-  if (dicePool.num > 0) {
-    dicePool.num -= 1;
+function addCondition(dicePool: DicePool) {
+  dicePool.condition = (dicePool.condition ?? 0) + 1;
+}
+
+function minusCondition(dicePool: DicePool) {
+  dicePool.condition = (dicePool.condition ?? 0) - 1;
+}
+
+function addWillpowerToPool() {
+  errors.willpower = undefined;
+
+  const countOfWillpowerPools = rollOptions.value.dicePools.filter(
+    (pool) => pool.trait === "willpower",
+  ).length;
+
+  const willpower =
+    // @ts-expect-error
+    props.application?.actor?.system?.willpower;
+  const current = willpower?.value ?? 0;
+  const max = willpower?.max ?? 2;
+
+  if (countOfWillpowerPools >= max) {
+    errors.willpower = `You cannot add more than ${max} willpower dice to the roll.`;
+    return;
   }
+
+  const canAdd = current - countOfWillpowerPools >= 1;
+  if (!canAdd) {
+    errors.willpower = `You cannot add more willpower dice to the roll than you have available.`;
+    return;
+  }
+
+  let name = "Willpower";
+  if (countOfWillpowerPools > 0) {
+    name = `Willpower ${countOfWillpowerPools + 1}`;
+  }
+  rollOptions.value.dicePools.push({
+    name,
+    desc: null,
+    num: 3,
+    trait: "willpower",
+  });
+}
+
+// The further the condition is from 0, the more red the dice will be. The closer to 0, the more green the dice will be.
+function calcConditionFilter(condition?: number) {
+  const curCond = condition ?? 0;
+  const maxDeviation = 10; // The maximum deviation from 0 that we will consider for color calculation
+  const normalizedCond =
+    Math.min(Math.abs(curCond), maxDeviation) / maxDeviation;
+
+  Logger("Calculating condition filter", {
+    condition: curCond,
+    normalizedCond,
+  });
+
+  // Red for negative, Green for positive, 180 being closer to green, 80 being closer to red
+  let hue = 130; // Start in between red and green
+  if (curCond > 0) {
+    // if positive, being green
+    hue = normalizedCond * 50 + hue; // shift towards green
+  } else {
+    // if negative, being red
+    hue = hue - normalizedCond * 50; // shift towards red
+  }
+
+  // Saturation increases with the value of the condition, 0 min, 10 max
+  const saturation = normalizedCond * 10;
+
+  // using css filter
+  return `hue-rotate(${hue}deg) saturate(${saturation})`;
+}
+
+function rollAFateDie() {
+  reset();
+
+  rollOptions.value.successThreshold = 10;
+  rollOptions.value.explodes = null;
+  rollOptions.value.dicePools = [];
+  rollOptions.value.dicePools.push({
+    name: "Fate",
+    desc: "Your Fate Beckons",
+    num: 1,
+  });
+
+  return onSubmit();
 }
 </script>
 <template>
@@ -141,13 +228,23 @@ function minusFromDicePool(dicePool: DicePool) {
     :class="{ loading }"
     @submit.prevent="onSubmit"
   >
-    <h3
-      style="width: max-content"
-      data-tooltip="Who you are rolling as"
-    >
-      {{ dicePoolOptions.name }}
-    </h3>
-    <fieldset>
+    <div class="title-bar">
+      <h3
+        style="width: max-content"
+        data-tooltip="Who you are rolling as"
+      >
+        {{ dicePoolOptions.name }}
+      </h3>
+
+      <button
+        type="button"
+        class="button stoneButton roll-fate"
+        @click="rollAFateDie"
+      >
+        Roll a Fate die
+      </button>
+    </div>
+    <fieldset name="dice-pools">
       <legend>
         <p>Dice Pool:</p>
         <div class="actions">
@@ -169,52 +266,71 @@ function minusFromDicePool(dicePool: DicePool) {
           </button>
         </div>
       </legend>
-      <template
-        v-for="(dicePool, index) in rollOptions.dicePools"
-        :key="index"
-      >
-        <label :data-tooltip="`Number of dice because of ${dicePool.name}.`">
-          <input
-            data-tooltip="The name of the dice, used for display purposes."
-            type="text"
-            v-model="dicePool.name"
-          />
-          <button
-            type="button"
-            @click="dicePool.num += 1"
-            class="button stoneButton item-add"
-            data-tooltip="Add a die to the roll."
+
+      <ul class="list-dice-pools">
+        <template
+          v-for="(dicePool, index) in rollOptions.dicePools"
+          :key="index"
+        >
+          <li
+            class="dice-pool"
+            :data-tooltip="`Number of dice because of ${dicePool.name}.`"
           >
-            <i class="fas fa-plus"></i>
-          </button>
-          <button
-            type="button"
-            @click="minusFromDicePool(dicePool)"
-            class="button stoneButton item-delete"
-            data-tooltip="Remove a die from the roll."
-          >
-            <i class="fas fa-minus"></i>
-          </button>
-          <input
-            data-tooltip="The number of dice to roll."
-            type="number"
-            v-model.number="dicePool.num"
-            min="0"
-            max="100"
-          />
-          <button
-            type="button"
-            @click="removeFromPool(index)"
-            class="button stoneButton item-delete"
-            data-tooltip="Remove these dice from the roll."
-          >
-            <i class="fas fa-times-circle"></i>
-          </button>
-        </label>
-      </template>
+            <input
+              name="name"
+              data-tooltip="The name of the dice, used for display purposes."
+              type="text"
+              v-model="dicePool.name"
+            />
+            <input
+              name="num"
+              data-tooltip="The base number of dice in the roll."
+              type="number"
+              v-model.number="dicePool.num"
+              min="0"
+              step="1"
+            />
+            <input
+              name="condition"
+              data-tooltip="The pluses or minuses to the number of dice in the roll."
+              type="number"
+              v-model.number="dicePool.condition"
+              step="1"
+              :style="{ filter: calcConditionFilter(dicePool.condition) }"
+            />
+            <button
+              type="button"
+              @click="addCondition(dicePool)"
+              class="button stoneButton item-add"
+              data-tooltip="Add 1 to the condition."
+            >
+              <i class="fas fa-plus"></i>
+            </button>
+            <button
+              type="button"
+              @click="minusCondition(dicePool)"
+              class="button stoneButton item-delete"
+              data-tooltip="Subtract 1 from the condition."
+            >
+              <i class="fas fa-minus"></i>
+            </button>
+            <button
+              type="button"
+              @click="removeFromPool(index)"
+              class="button stoneButton item-delete"
+              data-tooltip="Remove these dice from the roll."
+            >
+              <i class="fas fa-times-circle"></i>
+            </button>
+          </li>
+        </template>
+      </ul>
     </fieldset>
 
-    <label data-tooltip="What the dice need to meet or beat to succeed.">
+    <label
+      class="roll-option"
+      data-tooltip="What the dice need to meet or beat to succeed."
+    >
       <p>Success Threshold:</p>
       <input
         type="number"
@@ -223,7 +339,10 @@ function minusFromDicePool(dicePool: DicePool) {
         max="10"
       />
     </label>
-    <label data-tooltip="What the dice need to meet or beat to explode.">
+    <label
+      class="roll-option"
+      data-tooltip="What the dice need to meet or beat to explode."
+    >
       <p>Explodes Threshold:</p>
       <input
         type="checkbox"
@@ -237,14 +356,34 @@ function minusFromDicePool(dicePool: DicePool) {
         :disabled="rollOptions.explodes === null"
       />
     </label>
-    <label>
+    <label
+      class="roll-option"
+      data-tooltip="Add a willpower die to the roll."
+    >
+      <p>Add Willpower:</p>
+      <button
+        type="button"
+        @click="addWillpowerToPool()"
+        class="button stoneButton item-add"
+        data-tooltip="Add a willpower die to the roll."
+      >
+        <i class="fas fa-plus"></i>
+      </button>
+    </label>
+    <label
+      class="roll-option"
+      data-tooltip="Indicates if the roll is rote."
+    >
       <p>Rote Quality:</p>
       <input
         type="checkbox"
         v-model="rollOptions.rote"
       />
     </label>
-    <label data-tooltip="The number of times to repeat the roll.">
+    <label
+      class="roll-option"
+      data-tooltip="The number of times to repeat the roll."
+    >
       <p>Amount:</p>
       <input
         type="number"
@@ -293,6 +432,12 @@ function minusFromDicePool(dicePool: DicePool) {
     pointer-events: none;
   }
 
+  & .title-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
   & .actions {
     display: flex;
     align-items: center;
@@ -311,11 +456,46 @@ function minusFromDicePool(dicePool: DicePool) {
     }
   }
 
-  & label {
+  .list-dice-pools {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0;
+    margin: 0;
+    list-style-type: none;
+  }
+
+  & .dice-pool {
     display: flex;
     flex-direction: row;
     align-items: center;
     gap: 16px;
+
+    & input {
+      padding: 8px;
+      margin: 0;
+      font-size: 1rem;
+    }
+
+    & [name="name"],
+    & [name="condition"] {
+      width: 120px;
+    }
+
+    & [name="num"] {
+      width: 60px;
+      background: linear-gradient(
+        oklch(0.65 0.12 336 / 0.6),
+        oklch(0.39 0.04 336 / 0.5)
+      );
+    }
+  }
+
+  & label.roll-option {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
 
     & p {
       min-width: 150px;
@@ -330,7 +510,7 @@ function minusFromDicePool(dicePool: DicePool) {
     }
 
     & input[type="checkbox"] {
-      width: 20px;
+      width: max-content;
     }
   }
 
@@ -352,6 +532,11 @@ function minusFromDicePool(dicePool: DicePool) {
     background: var(--color-level-error-bg);
     font-weight: bold;
     padding: 8px;
+  }
+
+  & button.roll-fate {
+    min-width: 100px;
+    background: var(--background-button);
   }
 
   & button[type="submit"] {

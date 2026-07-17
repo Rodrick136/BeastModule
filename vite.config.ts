@@ -26,7 +26,7 @@ export default defineConfig(async ({ command, mode }) => {
     build: {
       outDir: 'script-build',
       assetsDir: './',
-      minify: false,
+      minify: true,
       sourcemap: "inline",
       cssCodeSplit: false,
       modulePreload: false,
