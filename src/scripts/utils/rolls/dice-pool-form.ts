@@ -1,3 +1,4 @@
+import { markRaw } from "vue";
 import type { RollOptions } from "./rolls";
 const { ApplicationV2 } = foundry.applications.api;
 
@@ -6,6 +7,7 @@ type ApplicationRenderOptions = foundry.applications.types.ApplicationRenderOpti
 export type DicePoolOptions = {
   cat: string,
   name: string,
+  rollMode?: ChatMessage.PassableRollMode,
   rollOptions?: Partial<RollOptions>,
 };
 
@@ -37,7 +39,7 @@ export class DicePoolForm extends ApplicationV2 {
     //Logger("Form _renderHTML", { context, options });
     const element = document.createElement("beast-dice-pool-options");
     //@ts-ignore
-    element.application = this;
+    element.application = markRaw(this);
     return element;
   }
 
