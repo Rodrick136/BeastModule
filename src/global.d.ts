@@ -41,3 +41,8 @@ declare module "*.vue" {
   const component: DefineComponent<object, object, any>;
   export default component;
 }
+
+// pretty an object
+export type Pretty<T> = {
+  [K in keyof T]: T[K];
+};
