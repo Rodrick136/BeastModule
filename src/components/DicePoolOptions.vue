@@ -2,14 +2,25 @@
 import { Clone, Handlize } from "@/scripts/utils/data";
 import { Logger } from "@/scripts/utils/logging";
 import { ConfirmationPrompt } from "@/scripts/utils/prompts";
-import type { DicePoolForm } from "@/scripts/utils/rolls/dice-pool-form";
+import type {
+  DicePoolForm,
+  DicePoolOptions,
+} from "@/scripts/utils/rolls/dice-pool-form";
 import {
   DEFAULT_ROLL_OPTIONS,
   printDicePool,
   type DicePool,
 } from "@/scripts/utils/rolls/rolls";
 import { useLocalStorage } from "@vueuse/core";
-import { computed, reactive, ref, shallowRef, watch, type PropType } from "vue";
+import {
+  computed,
+  reactive,
+  ref,
+  shallowRef,
+  toRaw,
+  watch,
+  type PropType,
+} from "vue";
 
 const props = defineProps({
   application: {
@@ -17,9 +28,15 @@ const props = defineProps({
     default: null,
   },
 });
-const dicePoolOptions = ref({
+
+const dicePoolOptions = ref<{
+  cat: string;
+  name: string;
+  rollMode: ChatMessage.PassableRollMode;
+}>({
   cat: "UnCategorized",
   name: "Roll",
+  rollMode: CONST.DICE_ROLL_MODES.PUBLIC,
 });
 
 const storageKey = shallowRef("beast--rollOptionsForm");
@@ -33,7 +50,13 @@ watch(
       });
       const cat = newApp.dicePoolOptions.cat || "UnCategorized";
       const name = newApp.dicePoolOptions.name || "Roll";
-      dicePoolOptions.value = { cat, name };
+      let rollMode = newApp.dicePoolOptions.rollMode;
+      if (!rollMode) {
+        const defaultRollMode = game.settings?.get("core", "rollMode");
+        rollMode = defaultRollMode ?? CONST.DICE_ROLL_MODES.PUBLIC;
+      }
+
+      dicePoolOptions.value = { cat, name, rollMode };
 
       const handle = Handlize(`${cat}-${name}`);
       const key = `beast--rollOptionsForm::${handle}`;
@@ -88,8 +111,8 @@ async function onSubmit(event?: SubmitEvent) {
     Logger("Form Submitted", { event });
 
     if (dicePoolOptions.value && props.application) {
-      props.application.dicePoolOptions = dicePoolOptions.value;
-      props.application.dicePoolOptions.rollOptions = rollOptions.value;
+      props.application.dicePoolOptions = toRaw(dicePoolOptions.value);
+      props.application.dicePoolOptions.rollOptions = toRaw(rollOptions.value);
       await printDicePool(props.application);
     } else {
       Logger("No options provided for dice pool form", { props }, "error");
@@ -185,10 +208,10 @@ function calcConditionFilter(condition?: number) {
   const normalizedCond =
     Math.min(Math.abs(curCond), maxDeviation) / maxDeviation;
 
-  Logger("Calculating condition filter", {
+  /* Logger("Calculating condition filter", {
     condition: curCond,
     normalizedCond,
-  });
+  }); */
 
   // Red for negative, Green for positive, 180 being closer to green, 80 being closer to red
   let hue = 130; // Start in between red and green
@@ -391,6 +414,21 @@ function rollAFateDie() {
         min="1"
         max="100"
       />
+    </label>
+    <label
+      class="roll-option"
+      data-tooltip=""
+    >
+      <p>Roll Mode:</p>
+      <select
+        type="text"
+        v-model="dicePoolOptions.rollMode"
+      >
+        <option value="publicroll">Public Roll</option>
+        <option value="gmroll">GM Roll</option>
+        <option value="blindroll">Blind Roll</option>
+        <option value="selfroll">Self Roll</option>
+      </select>
     </label>
     <div
       v-if="Object.values(errors).some((error) => !!error)"
