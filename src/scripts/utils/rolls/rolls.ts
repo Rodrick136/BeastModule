@@ -273,3 +273,78 @@ export async function renderDicePoolForm(
     Logger("Error rendering form", { error }, "error");
   }
 }
+
+function toSentenceCase(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
+export async function diceRollerMacroClicked(
+  app: ActorSheet,
+  html: JQuery<HTMLElement>,
+) {
+  Logger("Dice Roller Macro Clicked", { app });
+  const element = html[0];
+  const system = app.actor.system as Record<string, any>;
+  const rollableInputs = element.querySelectorAll(
+    "input[data-trait].attribute-check:checked",
+  ) as NodeListOf<HTMLInputElement>;
+
+  const pools: DicePool[] = [];
+  for (const input of rollableInputs) {
+    const data_trait = input.dataset.trait as string;
+    Logger("Processing rollable input", { input, data_trait });
+
+    const parts = data_trait.split(".");
+    const trait = parts.reduce((acc, key) => acc?.[key], system);
+    if (trait) {
+      const label = element.querySelector(
+        `label[for="${input.id}"]`,
+      ) as HTMLLabelElement | null;
+      const labelText =
+        label?.textContent?.trim() ?? toSentenceCase(parts.at(-1) ?? "unknown");
+      let num: number = trait?.final ?? trait?.value ?? 0;
+
+      if (data_trait === "willpower") {
+        if (num > 0) {
+          num = 3;
+        } else {
+          continue; // skip willpower if it's 0 or less
+        }
+      }
+
+      const pool: DicePool = {
+        name: labelText,
+        desc: null,
+        num: num,
+        trait: data_trait,
+        condition: 0,
+      };
+
+      const untrained = (trait?.value ?? 0) === 0;
+      if (untrained) {
+        if (parts[0] === "skills_mental") {
+          pool.condition = -3;
+        } else if (parts[0] === "skills_physical") {
+          pool.condition = -1;
+        } else if (parts[0] === "skills_social") {
+          pool.condition = -1;
+        }
+      }
+
+      pools.push(pool);
+    }
+  }
+
+  const options: DicePoolOptions = {
+    cat: "Character",
+    name: app.actor.name,
+  };
+  if (pools.length > 0) {
+    options.rollOptions = {
+      ...DEFAULT_ROLL_OPTIONS,
+      dicePools: pools,
+    };
+  }
+
+  return renderDicePoolForm(app.actor, options);
+}
