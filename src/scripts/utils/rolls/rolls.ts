@@ -31,19 +31,27 @@ type DicePoolsResolved = {
   rolls: Roll.Evaluated<Roll<{}>>[];
 };
 
-async function resolveDicePools(
-  options?: Partial<RollOptions>,
-): Promise<DicePoolsResolved | null> {
+function preparePools(dicePools: DicePool[]) {
+  return dicePools.sort((a, b) => {
+    const aCon = a.condition ?? 0;
+    const bCon = b.condition ?? 0;
+    // smallest conditional first
+    return aCon - bCon;
+  });
+}
+
+async function resolveDicePools(options?: Partial<RollOptions>) {
   try {
     const config = Clone({ ...DEFAULT_ROLL_OPTIONS, ...options });
+    const pools = preparePools(config.dicePools);
 
-    const totalDice = config.dicePools.reduce(
+    const totalDice = pools.reduce(
       (acc, pool) => acc + pool.num + (pool.condition ?? 0),
       0,
     );
 
     Logger("Total Dice:", {
-      dicePools: config.dicePools,
+      pools,
       totalDice,
     });
 
@@ -53,7 +61,7 @@ async function resolveDicePools(
         desc: "Your Fate Beckons",
         num: 1,
       };
-      config.dicePools.push(fatePool);
+      pools.push(fatePool);
       config.explodes = null;
       config.successThreshold = 10;
     }
@@ -61,9 +69,18 @@ async function resolveDicePools(
     const reroll = config.rote ? `r<${config.successThreshold}` : "";
     const explodes = config.explodes !== null ? `x>=${config.explodes}` : "";
     const count = `cs>=${config.successThreshold}`;
-    const formula = config.dicePools
+
+    let rollOver = 0;
+    const formula = pools
       .map((pool) => {
-        const num = Math.max(pool.num + (pool.condition ?? 0), 0);
+        const weatheredNum = pool.num + (pool.condition ?? 0) + rollOver;
+        rollOver = 0;
+
+        if (weatheredNum < 0) {
+          rollOver += weatheredNum;
+        }
+
+        const num = Math.max(weatheredNum, 0);
         return `${num}d10${reroll}${explodes}${count}[${pool.name}]`; //ie 5d10r<8x>=8cs>=8
       })
       .join(" + ");
@@ -82,6 +99,7 @@ async function resolveDicePools(
 
     Logger("Resolved Roll", result);
 
+    result.config.dicePools = pools;
     return result;
   } catch (error) {
     Logger("Error resolving dice pools", { error }, "error");
@@ -109,7 +127,9 @@ function printDicePoolsResolved(name: string, resolved: DicePoolsResolved) {
 
         const dramaticFailure = result.result === 1 ? "dramatic-failure" : "";
         const fate = isFateRoll ? `fate-roll ${dramaticFailure}`.trim() : "";
-        const classList = [success, explodedClass, fate].filter(Boolean).join(" ");
+        const classList = [success, explodedClass, fate]
+          .filter(Boolean)
+          .join(" ");
 
         const classes = `roll die d10 ${classList}`.trim();
         const resultHtml: string = html`<li class="die-result">
@@ -124,6 +144,10 @@ function printDicePoolsResolved(name: string, resolved: DicePoolsResolved) {
         <header class="part-header flexrow">
           <span class="part-formula">Formula:</span>
           <span class="part-total">${die.formula.split("[")[0]}</span>
+        </header>
+        <header class="part-header flexrow">
+          <span class="part-formula">Number:</span>
+          <span class="part-total">${pool?.num}</span>
         </header>
         <header class="part-header flexrow">
           <span class="part-formula">Condition:</span>
@@ -208,7 +232,7 @@ function printDicePoolsResolved(name: string, resolved: DicePoolsResolved) {
 }
 
 export async function printDicePool(form: DicePoolForm) {
-  Logger("printDicePool", { form });
+  //Logger("printDicePool", { form });
   const { cat, name, rollOptions } = form.dicePoolOptions;
 
   const resolved = await resolveDicePools(rollOptions);
@@ -218,22 +242,35 @@ export async function printDicePool(form: DicePoolForm) {
   } else {
     msg = `<p>Error resolving dice pools, try again.</p>`;
   }
-  // Logger("Printing Roll Results", { resolved, msg });
-  const rollMode = game.settings?.get("core", "rollMode") ?? "publicroll";
 
-  const flavor = rollOptions?.dicePools?.map((pool) => pool.name).join(", ");
-  ChatMessage.create(
-    {
-      speaker: ChatMessage.getSpeaker({ actor: form.actor }),
-      flavor: flavor ?? cat,
-      content: msg,
-      sound: CONFIG.sounds.dice,
-    },
-    {
-      rollMode,
-      chatBubble: false,
-    },
-  );
+  Logger("Printing Dice Pool", {
+    cat,
+    name,
+    dicePoolOptions: form.dicePoolOptions,
+    msg,
+  });
+  const flavor = resolved?.config.dicePools
+    ?.map((pool) => {
+      return pool.desc ? `${pool.name}; ${pool.desc}` : pool.name;
+    })
+    .join(", ");
+
+  const speaker = ChatMessage.getSpeaker({ actor: form.actor });
+  const chatData = {
+    speaker: speaker,
+    flavor: flavor ?? cat,
+    content: msg,
+    sound: CONFIG.sounds.dice,
+  };
+  const rollMode = form.dicePoolOptions.rollMode ?? "roll";
+
+  // Apply roll mode mutations to chatData before creating the message
+  ChatMessage.applyRollMode(chatData, rollMode);
+
+  // Actually create the chat message with the modified chatData
+  ChatMessage.create(chatData, {
+    chatBubble: false,
+  });
 
   if (form.actor) {
     const el = document.getElementById(`MtAActorSheet-Actor-${form.actor.id}`);
